@@ -15,6 +15,10 @@ COMPOSE          := docker compose
 UV               := uv
 UV_RUN           := $(UV) run
 
+# Activate the local deployment profile by default so the profile loader
+# sets DB_BACKEND=postgres and POSTGRES_DSN from profiles/local.yaml.
+export COORDINATOR_PROFILE ?= local
+
 # ---------------------------------------------------------------------------
 # Phase: Setup
 # ---------------------------------------------------------------------------

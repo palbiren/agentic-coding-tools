@@ -223,5 +223,8 @@ formal/lean/.lake/
 # Node modules
 node_modules/
 
+# Shared uv cache for worktrees
+.uv-cache/
+
 # Coordinator secrets (profile interpolation)
 .secrets.yaml

@@ -5,7 +5,7 @@ Manages worktree creation, teardown, status, and detection.
 Outputs machine-parseable KEY=VALUE lines for shell eval.
 
 Usage:
-    python3 scripts/worktree.py setup <change-id> [--branch <name>] [--prefix <prefix>]
+    python3 scripts/worktree.py setup <change-id> [--branch <name>] [--prefix <prefix>] [--no-bootstrap]
     python3 scripts/worktree.py teardown <change-id> [--prefix <prefix>]
     python3 scripts/worktree.py status [<change-id>]
     python3 scripts/worktree.py detect
@@ -107,7 +107,23 @@ def cmd_setup(args: argparse.Namespace) -> int:
         run_git("worktree", "add", str(wt_path), branch, cwd=str(main_repo))
         print("CREATED=true", file=sys.stderr)
 
+    # Bootstrap the worktree (copy .env, install deps, sync skills)
+    bootstrapped = False
+    if not args.no_bootstrap:
+        bootstrap_script = main_repo / "scripts" / "worktree-bootstrap.sh"
+        if bootstrap_script.is_file():
+            print("Bootstrapping worktree...", file=sys.stderr)
+            result = subprocess.run(
+                ["bash", str(bootstrap_script), str(wt_path), str(main_repo)],
+                capture_output=False,
+                check=False,
+            )
+            bootstrapped = result.returncode == 0
+        else:
+            print("No bootstrap script found, skipping", file=sys.stderr)
+
     print(f"WORKTREE_PATH={wt_path}")
+    print(f"BOOTSTRAPPED={'true' if bootstrapped else 'false'}")
     return 0
 
 
@@ -207,6 +223,10 @@ def main() -> int:
     setup_parser.add_argument("change_id", help="Change ID or identifier")
     setup_parser.add_argument("--branch", help="Branch name (default: openspec/<change-id>)")
     setup_parser.add_argument("--prefix", help="Path prefix (e.g., fix-scrub)")
+    setup_parser.add_argument(
+        "--no-bootstrap", action="store_true",
+        help="Skip environment bootstrap (deps, .env copy, skills sync)",
+    )
     setup_parser.set_defaults(func=cmd_setup)
 
     # teardown

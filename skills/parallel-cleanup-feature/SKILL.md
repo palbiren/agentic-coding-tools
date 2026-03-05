@@ -139,8 +139,12 @@ If rebase conflicts occur:
 ### 7. Merge PR
 
 ```bash
-# Squash merge (recommended for parallel workflow)
-gh pr merge openspec/<change-id> --squash --delete-branch
+# Prefer merge queue when enabled (validates combined PR state before merging)
+gh pr merge openspec/<change-id> --squash --delete-branch --merge-queue
+
+# If merge queue is not enabled, the --merge-queue flag is ignored and
+# the PR merges directly. If merge queue IS enabled but --merge-queue is
+# omitted, gh will prompt or error — so always include it.
 ```
 
 ### 8. Mark Merged in Registry

@@ -1,0 +1,10 @@
+# Merge strategies for auto-generated files
+# Reduces false conflicts in parallel development
+
+# uv lock files — union merge (combine both sides)
+uv.lock merge=union
+
+# Package lock files — binary merge (pick one side, flag conflict)
+package-lock.json merge=binary
+yarn.lock merge=binary
+pnpm-lock.yaml merge=binary

@@ -23,6 +23,10 @@ UV_RUN           := $(UV) run
 install: ## Install all dependencies (uv sync --all-extras)
 	$(UV) sync --all-extras
 
+.PHONY: git-setup
+git-setup: ## Configure git for parallel development (rerere, zdiff3, etc.)
+	bash $(CURDIR)/../scripts/git-parallel-setup.sh
+
 .PHONY: setup-env
 setup-env: ## Copy .env.example → .env (will not overwrite existing .env)
 	@if [ -f .env ]; then \

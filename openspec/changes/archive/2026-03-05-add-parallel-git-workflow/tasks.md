@@ -2,19 +2,19 @@
 
 ## 1. Worktree Bootstrap
 
-- [ ] 1.1 Create worktree bootstrap script
+- [x]1.1 Create worktree bootstrap script
   **Dependencies**: None
   **Files**: `scripts/worktree-bootstrap.sh`
   **Traces**: REQ-WTBOOT-2, REQ-WTBOOT-3, REQ-WTBOOT-4, REQ-WTBOOT-5, REQ-WTBOOT-6, REQ-WTBOOT-7, REQ-WTBOOT-9, REQ-WTBOOT-10
   **Details**: Create `scripts/worktree-bootstrap.sh` that accepts `WORKTREE_PATH` and `MAIN_REPO` as arguments. Copies `.env` and `.secrets.yaml` from main repo, runs `uv sync` in both Python project directories, runs skills install. Uses `UV_CACHE_DIR` pointing to `$MAIN_REPO/.uv-cache/`. Reports errors but exits 0 (non-fatal). Must be idempotent.
 
-- [ ] 1.2 Integrate bootstrap into worktree.py setup
+- [x]1.2 Integrate bootstrap into worktree.py setup
   **Dependencies**: 1.1
   **Files**: `scripts/worktree.py`
   **Traces**: REQ-WTBOOT-1, REQ-WTBOOT-8
   **Details**: After successful worktree creation in `cmd_setup()`, call `scripts/worktree-bootstrap.sh` with the worktree path and main repo path. Add `--no-bootstrap` CLI flag. Output `BOOTSTRAPPED=true|false` in the KEY=VALUE output.
 
-- [ ] 1.3 Add `.uv-cache/` to `.gitignore`
+- [x]1.3 Add `.uv-cache/` to `.gitignore`
   **Dependencies**: None
   **Files**: `.gitignore`
   **Traces**: REQ-WTBOOT-7
@@ -22,19 +22,19 @@
 
 ## 2. Git Parallel Configuration
 
-- [ ] 2.1 Create git parallel setup script
+- [x]2.1 Create git parallel setup script
   **Dependencies**: None
   **Files**: `scripts/git-parallel-setup.sh`
   **Traces**: REQ-GITCFG-1, REQ-GITCFG-2, REQ-GITCFG-3, REQ-GITCFG-4, REQ-GITCFG-5
   **Details**: Create `scripts/git-parallel-setup.sh` that configures the local repo (not global) with rerere, zdiff3, histogram diff, and updateRefs. Script should be idempotent and print what it configured. Uses `git config --local` for all settings.
 
-- [ ] 2.2 Create `.gitattributes` with merge strategies
+- [x]2.2 Create `.gitattributes` with merge strategies
   **Dependencies**: None
   **Files**: `.gitattributes`
   **Traces**: REQ-GITCFG-6
   **Details**: Create `.gitattributes` defining merge strategies for auto-generated files: `uv.lock` with `merge=union`, lock files with `merge=binary`. Keep it minimal — only files that genuinely benefit from custom merge behavior.
 
-- [ ] 2.3 Add `git-setup` target to agent-coordinator Makefile
+- [x]2.3 Add `git-setup` target to agent-coordinator Makefile
   **Dependencies**: 2.1
   **Files**: `agent-coordinator/Makefile`
   **Traces**: REQ-GITCFG-1, REQ-GITCFG-2, REQ-GITCFG-3, REQ-GITCFG-4
@@ -42,19 +42,19 @@
 
 ## 3. GitHub Merge Queue + CI
 
-- [ ] 3.1 Add `merge_group` trigger to CI workflow
+- [x]3.1 Add `merge_group` trigger to CI workflow
   **Dependencies**: None
   **Files**: `.github/workflows/ci.yml`
   **Traces**: REQ-MQ-1
   **Details**: Add `merge_group:` to the `on:` triggers in CI. This allows GitHub's merge queue to run CI on combined PR state before merging.
 
-- [ ] 3.2 Update parallel-cleanup-feature to prefer merge queue
+- [x]3.2 Update parallel-cleanup-feature to prefer merge queue
   **Dependencies**: None
   **Files**: `skills/parallel-cleanup-feature/SKILL.md`
   **Traces**: REQ-MQ-2
   **Details**: In the merge step, add guidance to check if merge queue is enabled (`gh repo view --json mergeCommitAllowed`) and prefer `gh pr merge --merge-queue` over direct merge.
 
-- [ ] 3.3 Update merge_pr.py to default to merge queue
+- [x]3.3 Update merge_pr.py to default to merge queue
   **Dependencies**: None
   **Files**: `skills/merge-pull-requests/scripts/merge_pr.py`
   **Traces**: REQ-MQ-3
@@ -62,7 +62,7 @@
 
 ## 4. Documentation
 
-- [ ] 4.1 Create parallel git config documentation
+- [x]4.1 Create parallel git config documentation
   **Dependencies**: 2.1, 3.1
   **Files**: `docs/parallel-git-config.md`
   **Traces**: REQ-GITCFG-1, REQ-GITCFG-2, REQ-GITCFG-3, REQ-GITCFG-4, REQ-MQ-1

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-05T15:00:00Z",
+  "generated_at": "2026-03-05T17:00:00Z",
   "focus_area": "parallel agent git workflow improvements",
   "history_adjustment_applied": true,
   "weights": {
@@ -13,54 +13,6 @@
     "effort": { "S": 1, "M": 2, "L": 3 }
   },
   "items": [
-    {
-      "id": "add-worktree-bootstrap",
-      "title": "Add automated environment bootstrap for git worktrees",
-      "problem_statement": "New worktrees lack .env, .secrets.yaml, installed dependencies (uv venv, node_modules), and MCP config. Agents cannot run code in worktrees, so they fall back to main and create merge conflicts. worktree.py setup needs a post-setup hook that copies .env from the main repo, runs uv sync, and configures the worktree as a runnable environment.",
-      "impact": "high",
-      "strategic_fit": "high",
-      "effort": "S",
-      "risk": "low",
-      "score": 2.8,
-      "bucket": "quick-win",
-      "suggested_change_prefix": "add-",
-      "change_id_hint": "add-worktree-bootstrap",
-      "blocked_by": [],
-      "recommended_action": "/plan-feature now",
-      "why_now": "Root cause of agents abandoning worktrees and creating conflicts on main. Every parallel workflow session hits this. Small effort — extend worktree.py setup to call a bootstrap script."
-    },
-    {
-      "id": "add-git-parallel-config",
-      "title": "Enable rerere, zdiff3, and merge queue for parallel-friendly git config",
-      "problem_statement": "Git defaults are conservative for parallel development. rerere is disabled (recurring conflicts re-resolved manually), conflict markers lack base context (diff3/zdiff3 off), and no GitHub merge queue prevents broken main from concurrent PR merges. A .gitconfig overlay and CI merge_group trigger would fix all three.",
-      "impact": "high",
-      "strategic_fit": "high",
-      "effort": "S",
-      "risk": "low",
-      "score": 2.8,
-      "bucket": "quick-win",
-      "suggested_change_prefix": "add-",
-      "change_id_hint": "add-git-parallel-config",
-      "blocked_by": [],
-      "recommended_action": "/plan-feature now",
-      "why_now": "Zero-downside improvements. rerere shares conflict resolutions across all worktrees automatically. zdiff3 gives agents better context for conflict resolution. GitHub merge queue prevents broken main. All are config-only changes."
-    },
-    {
-      "id": "add-github-merge-queue",
-      "title": "Enable GitHub merge queue with merge_group CI trigger",
-      "problem_statement": "When multiple agent PRs pass CI against the same main SHA and merge concurrently, main can break because PR B was never tested against PR A's changes. GitHub merge queue creates temporary branches combining all queued PRs and runs CI against the combined state before allowing merge.",
-      "impact": "high",
-      "strategic_fit": "high",
-      "effort": "S",
-      "risk": "low",
-      "score": 2.8,
-      "bucket": "quick-win",
-      "suggested_change_prefix": "add-",
-      "change_id_hint": "add-github-merge-queue",
-      "blocked_by": [],
-      "recommended_action": "/plan-feature now (can combine with add-git-parallel-config)",
-      "why_now": "Essential safety net for parallel PRs. Without it, the last-write-wins race condition on main is unsolved. Requires adding merge_group trigger to CI and enabling the queue in GitHub branch protection."
-    },
     {
       "id": "refactor-architecture-for-parallel",
       "title": "Reduce merge conflict surface through architectural separation",
@@ -89,9 +41,25 @@
       "bucket": "big-bet",
       "suggested_change_prefix": "add-",
       "change_id_hint": "add-merge-queue-github-integration",
-      "blocked_by": ["add-github-merge-queue"],
-      "recommended_action": "defer — enable GitHub merge queue first, then integrate",
-      "why_now": "Coordinator merge queue has priority ordering and resource-conflict awareness that GitHub's FIFO queue lacks. Combining both gives priority-ordered, CI-validated, conflict-aware merging."
+      "blocked_by": [],
+      "recommended_action": "/plan-feature when coordinator is actively used for parallel merges",
+      "why_now": "GitHub merge queue CI trigger is now enabled. Coordinator merge queue has priority ordering and resource-conflict awareness that GitHub's FIFO queue lacks. Combining both gives priority-ordered, CI-validated, conflict-aware merging."
+    },
+    {
+      "id": "add-coordinator-assurance-verification",
+      "title": "Complete behavioral verification suite for coordinator (sections 4+6)",
+      "problem_statement": "16/35 tasks done on the assurance verification change. Remaining 19 tasks are primarily behavioral verification: boundary integration tests, stateful/property tests for lock+queue invariants, Cedar-vs-native differential testing, RLS assertions, audit completeness. TLA+ formal model already exists.",
+      "impact": "high",
+      "strategic_fit": "high",
+      "effort": "L",
+      "risk": "med",
+      "score": 2.25,
+      "bucket": "big-bet",
+      "suggested_change_prefix": "add-",
+      "change_id_hint": "add-coordinator-assurance-verification",
+      "blocked_by": [],
+      "recommended_action": "continue implementation",
+      "why_now": "Builds trust in coordinator before adding dynamic authorization. TLA+ model already in place provides foundation."
     },
     {
       "id": "update-worktree-port-integration",
@@ -105,9 +73,9 @@
       "bucket": "big-bet",
       "suggested_change_prefix": "update-",
       "change_id_hint": "update-worktree-port-integration",
-      "blocked_by": ["add-worktree-bootstrap"],
-      "recommended_action": "defer — plan after worktree bootstrap is solid",
-      "why_now": "Port allocator exists. Integration becomes relevant once worktrees are bootstrapped and agents actually run services in them."
+      "blocked_by": [],
+      "recommended_action": "defer — plan when parallel execution with services is needed",
+      "why_now": "Port allocator exists and worktree bootstrap now works. Integration becomes relevant when worktree tasks need service isolation."
     },
     {
       "id": "add-agent-metadata-notes",
@@ -126,13 +94,12 @@
       "why_now": "Useful for analysis but not blocking any workflow. Coordinator audit trail already provides most of this data."
     }
   ],
-  "top_recommendation": "add-worktree-bootstrap",
+  "top_recommendation": "add-coordinator-assurance-verification",
   "completed_since_last": [
-    "add-port-allocator-service",
-    "fix-validate-feature-hardcoded-ports",
-    "add-env-template-generator",
-    "add-docker-compose-project-isolation",
-    "add-security-review-skill-core",
+    "add-worktree-bootstrap",
+    "add-git-parallel-config",
+    "add-github-merge-queue",
+    "close-near-complete-changes",
     "add-ci-skills-tests"
   ]
 }

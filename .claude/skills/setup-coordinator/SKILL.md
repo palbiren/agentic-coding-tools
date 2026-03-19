@@ -13,7 +13,21 @@ triggers:
 
 # Setup Coordinator
 
-Configure coordinator access for local CLI runtimes (MCP) and Web/Cloud runtimes (HTTP), verify capability detection, and capture fallback expectations.
+Configure coordinator access for local and cloud agent runtimes, verify capability detection, and capture fallback expectations.
+
+## Transport Model
+
+The coordinator has two transports — **MCP (stdio)** and **HTTP** — both backed by the same service layer and shared Postgres database. Coordination happens at the database level, not the transport level.
+
+| Scenario | Transport | Database |
+|----------|-----------|----------|
+| Local (solo or multi-agent) | MCP (stdio) → direct Postgres | Local ParadeDB |
+| Cloud agents | HTTP → Coordination API | Railway Postgres |
+| Cross-environment (local + cloud) | Local: HTTP bridge, Cloud: HTTP | Railway Postgres |
+
+For local development, multiple CLI agents (Claude, Codex, Gemini) each spawn their own MCP server process, all connecting to the same local ParadeDB. No cloud infrastructure needed.
+
+For cross-environment coordination, local agents switch to the HTTP transport via `coordination_bridge.py` so the database is not publicly exposed.
 
 ## Arguments
 
@@ -21,14 +35,14 @@ Configure coordinator access for local CLI runtimes (MCP) and Web/Cloud runtimes
 
 - `--profile <local|railway>` (default: read from `COORDINATOR_PROFILE` env var, fallback `local`)
 - `--mode <auto|cli|web>` (default: `auto`)
-- `--http-url <url>` (for Web/Cloud verification)
-- `--api-key <key>` (for Web/Cloud verification)
+- `--http-url <url>` (for HTTP verification)
+- `--api-key <key>` (for HTTP verification)
 
 ## Objectives
 
 - Load deployment profile (`local` or `railway`) and apply configuration
-- Enable MCP coordinator access for Claude Codex CLI, Codex CLI, and Gemini CLI
-- Enable HTTP coordinator access for Claude Web, Codex Cloud/Web, and Gemini Web/Cloud
+- Register MCP server with CLI agents (Claude Code, Codex CLI, Gemini CLI)
+- Configure HTTP access for cloud agents and cross-environment coordination
 - Read `agents.yaml` to determine which agents to configure
 - Verify capability detection contract used by integrated skills
 - Confirm graceful standalone fallback when coordinator is unavailable
@@ -107,35 +121,41 @@ If health fails, fix runtime first (start `docker compose up -d` in `agent-coord
 
 Run this section when mode is `auto` or `cli`.
 
-#### 3a. Register MCP server in each CLI runtime
+#### 3a. Register MCP server with CLI agents
 
-- Claude Codex CLI: configure `coordination_mcp` server (see `agent-coordinator/README.md`)
-- Codex CLI: register the same MCP server in Codex MCP settings
-- Gemini CLI: register the same MCP server in Gemini MCP settings
-
-Use one canonical command target:
-
-```text
-python -m src.coordination_mcp
-```
-
-with environment variables from `agents.yaml` via `get_mcp_env(agent_id)`:
+Use the Makefile targets to register with each CLI's native `mcp add` command:
 
 ```bash
 cd agent-coordinator
-python3 -c "
-from src.agents_config import get_mcp_env
-env = get_mcp_env('claude-code-local')
-for k, v in env.items():
-    print(f'{k}={v}')
-"
+
+# Register with all CLI agents at once
+make mcp-setup
+
+# Or register individually:
+make claude-mcp-setup   # claude mcp add-json --scope user
+make codex-mcp-setup    # codex mcp add --env ...
+make gemini-mcp-setup   # gemini mcp add --scope user --env ...
 ```
 
-This generates `AGENT_ID`, `AGENT_TYPE`, and database connection settings for the MCP server registration.
+Each target registers the coordination MCP server with:
+- Absolute path to the venv Python binary (`.venv/bin/python -m src.coordination_mcp`)
+- `DB_BACKEND=postgres` and `POSTGRES_DSN` pointing to local ParadeDB
+- `AGENT_ID` and `AGENT_TYPE` for identity
+- Claude Code also gets `cwd` via `add-json` (Codex/Gemini don't need it — all file lookups use `Path(__file__)`)
+
+Restart each CLI after registration to activate.
 
 #### 3b. Verify MCP capabilities
 
-In each CLI runtime, verify tool discovery includes coordinator tools:
+Verify the MCP server is connected in each CLI:
+
+```bash
+claude mcp list   # Should show: coordination → ✓ Connected
+codex mcp list    # Should show: coordination → enabled
+gemini mcp list   # Should show: coordination → ✓ Connected
+```
+
+Verify tool discovery includes coordinator tools:
 
 - `acquire_lock`, `release_lock`
 - `submit_work`, `get_work`, `complete_work`
@@ -149,20 +169,34 @@ Expected detection result in integrated skills:
 - `COORDINATOR_AVAILABLE=true`
 - `CAN_*` flags reflect discovered MCP tools
 
-### 4. Web/Cloud Path (HTTP) Setup and Verification
+### 4. HTTP Path Setup and Verification
 
-Run this section when mode is `auto` or `web`.
+Run this section when mode is `auto` or `web`, or when local agents need to coordinate with cloud agents.
+
+#### 4a. When to use HTTP
+
+- **Cloud/web agents** that cannot run MCP stdio processes
+- **Cross-environment coordination** where local and cloud agents share state — local agents switch to HTTP via `coordination_bridge.py` so the database is not publicly exposed
+
+For local-only multi-agent coordination, MCP is sufficient — all agents connect to the same local ParadeDB.
+
+#### 4b. Configure HTTP access
 
 Set runtime secrets/env:
 
 ```bash
-export COORDINATION_API_URL="<https://coord.example.com>"
-export COORDINATION_API_KEY="<api-key>"
+export COORDINATION_API_URL="https://your-app.railway.app"
+export COORDINATION_API_KEY="<your-provisioned-api-key>"
+# Allow Railway hosts in SSRF filter
+export COORDINATION_ALLOWED_HOSTS="your-app.railway.app,your-app-production.up.railway.app"
 ```
 
 Verify detection and capability flags:
 
 ```bash
+curl -s "$COORDINATION_API_URL/health"
+# Expected: {"status": "ok", "db": "connected", "version": "0.2.0"}
+
 python scripts/coordination_bridge.py detect \
   --http-url "$COORDINATION_API_URL" \
   --api-key "$COORDINATION_API_KEY"
@@ -175,28 +209,6 @@ Expected detection result in integrated skills:
 - `CAN_*` flags reflect reachable HTTP endpoints for that credential scope
 
 If only some endpoints are available, keep `COORDINATOR_AVAILABLE=true` and set missing capabilities to `false`.
-
-#### Cloud Deployment (Railway)
-
-For Railway-deployed coordinators, set the public HTTPS URL:
-
-```bash
-export COORDINATION_API_URL="https://your-app.railway.app"
-export COORDINATION_API_KEY="<your-provisioned-api-key>"
-# Allow Railway hosts in SSRF filter
-export COORDINATION_ALLOWED_HOSTS="your-app.railway.app,your-app-production.up.railway.app"
-```
-
-Verify cloud connectivity:
-
-```bash
-curl -s "$COORDINATION_API_URL/health"
-# Expected: {"status": "ok", "db": "connected", "version": "0.2.0"}
-
-python scripts/coordination_bridge.py detect \
-  --http-url "$COORDINATION_API_URL" \
-  --api-key "$COORDINATION_API_KEY"
-```
 
 See `docs/cloud-deployment.md` for full Railway setup instructions.
 

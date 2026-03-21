@@ -47,7 +47,8 @@ When coordinator is unavailable, degrades to `linear-cleanup-feature` behavior.
 At skill start, run the coordinator detection script:
 
 ```bash
-python3 agent-coordinator/scripts/check_coordinator.py --json
+# Use the script bundled with this skill (resolve from skill base directory shown above)
+python3 "<skill-base-dir>/scripts/check_coordinator.py" --json
 ```
 
 Parse the JSON output to set `COORDINATOR_AVAILABLE`, `COORDINATION_TRANSPORT`, and all `CAN_*` flags.

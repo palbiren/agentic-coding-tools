@@ -33,7 +33,8 @@ Create an OpenSpec proposal with contract-first artifacts and a `work-packages.y
 At skill start, run the coordinator detection script:
 
 ```bash
-python3 agent-coordinator/scripts/check_coordinator.py --json
+# Use the script bundled with this skill (resolve from skill base directory shown above)
+python3 "<skill-base-dir>/scripts/check_coordinator.py" --json
 ```
 
 Parse the JSON output to set capability flags. Required capabilities:
@@ -60,7 +61,7 @@ If `COORDINATOR_AVAILABLE` is `false` or required capabilities are unavailable, 
 
 ### 0. Detect Coordinator and Read Handoff
 
-Run `python3 agent-coordinator/scripts/check_coordinator.py --json` and parse the result.
+Run `python3 "<skill-base-dir>/scripts/check_coordinator.py" --json` and parse the result.
 
 If `CAN_HANDOFF=true`, read latest handoff context.
 If `CAN_MEMORY=true`, recall relevant planning memories.

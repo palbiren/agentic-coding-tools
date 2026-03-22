@@ -67,7 +67,7 @@ The agent identity system SHALL support per-agent dynamic PostgreSQL credentials
 
 ## MODIFIED Requirements
 
-### Requirement: API Key Identity Generation (from agent-identity spec)
+### Requirement: API Key Identity Generation
 
 **MODIFIED**: `get_api_key_identities()` SHALL support resolving API keys from OpenBao when enabled.
 

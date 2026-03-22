@@ -145,7 +145,7 @@ The worktree bootstrap process SHALL conditionally skip `.secrets.yaml` file cop
 
 ## MODIFIED Requirements
 
-### Requirement: Secret Interpolation (from configuration spec)
+### Requirement: Secret Interpolation
 
 **MODIFIED**: The secret interpolation resolution order SHALL be extended to support OpenBao as a secret source.
 

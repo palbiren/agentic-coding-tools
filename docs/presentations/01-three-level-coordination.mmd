@@ -1,0 +1,40 @@
+---
+title: Three-Level Coordination Model
+---
+graph LR
+    subgraph L3["Level 3: Program — Human-Driven"]
+        direction TB
+        PM["Portfolio\nPrioritization"]
+        AG["Approval\nGates"]
+        EP["Epic\nSequencing"]
+    end
+
+    subgraph L2["Level 2: Cross-Feature — Coordinator-Assisted"]
+        direction TB
+        FR["Feature\nRegistry"]
+        MQ["Merge\nQueue"]
+        CA["Conflict\nAnalysis"]
+    end
+
+    subgraph L1["Level 1: Intra-Feature — Agent-Automated"]
+        direction TB
+        DS["DAG\nScheduler"]
+        WP["Work\nPackages"]
+        LK["Lock\nProtocol"]
+    end
+
+    L3 --- L2
+    L2 --- L1
+
+    style L3 fill:#fce4ec,stroke:#E91E63,stroke-width:2px
+    style L2 fill:#e8f4fd,stroke:#2196F3,stroke-width:2px
+    style L1 fill:#e8f5e9,stroke:#4CAF50,stroke-width:2px
+    style PM fill:#f8bbd0,stroke:#C2185B
+    style AG fill:#f8bbd0,stroke:#C2185B
+    style EP fill:#f8bbd0,stroke:#C2185B
+    style FR fill:#bbdefb,stroke:#1976D2
+    style MQ fill:#bbdefb,stroke:#1976D2
+    style CA fill:#bbdefb,stroke:#1976D2
+    style DS fill:#c8e6c9,stroke:#43A047
+    style WP fill:#c8e6c9,stroke:#43A047
+    style LK fill:#c8e6c9,stroke:#43A047

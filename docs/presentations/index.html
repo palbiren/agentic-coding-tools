@@ -100,22 +100,23 @@
         </aside>
     </section>
 
-    <!-- Two-Level Overview Diagram -->
+    <!-- Three-Level Overview Diagram -->
     <section>
-        <h2>Two-Level Parallelism</h2>
+        <h2>Three-Level Coordination</h2>
         <div class="diagram-slide">
-            <img src="01-two-level-parallelism.svg" alt="Two-Level Parallel Architecture">
+            <img src="01-three-level-coordination.svg" alt="Three-Level Coordination Model">
         </div>
         <aside class="notes">
-            Level 1: Multiple features develop in parallel, managed by feature registry and merge queue.
-            Level 2: Within a feature, work packages execute in parallel via DAG scheduling.
-            The coordinator provides the primitives both levels depend on.
+            Level 3 (human): portfolio prioritization, epic sequencing, approval gates. Humans retain all strategic decisions.
+            Level 2 (coordinator-assisted): feature registry detects conflicts, merge queue orders merges.
+            Level 1 (agent-automated): DAG scheduling, lock protocol, scope enforcement — fully automated.
+            Automation increases as scope narrows.
         </aside>
     </section>
 
-    <!-- Level 1 Detail -->
+    <!-- Level 2 Detail -->
     <section>
-        <h2>Level 1: Cross-Feature Parallelism</h2>
+        <h2>Level 2: Cross-Feature Parallelism</h2>
         <div class="two-col">
             <div>
                 <h3>Feature Registry</h3>
@@ -142,9 +143,9 @@
         </aside>
     </section>
 
-    <!-- Level 2 Detail -->
+    <!-- Level 1 Detail -->
     <section>
-        <h2>Level 2: Intra-Feature Parallelism</h2>
+        <h2>Level 1: Intra-Feature Parallelism</h2>
         <div class="two-col">
             <div>
                 <h3>Work Packages</h3>
@@ -168,6 +169,38 @@
         <aside class="notes">
             "Inverse Conway Maneuver" — agents organized by architectural boundary, not lifecycle phase.
             Scope enforcement is deterministic: git diff output is checked against globs after code generation.
+        </aside>
+    </section>
+
+    <!-- Level 3 Detail -->
+    <section>
+        <h2>Level 3: Program Coordination</h2>
+        <div class="two-col">
+            <div>
+                <h3>Human Approval Gates</h3>
+                <ul class="medium">
+                    <li><strong>Feature selection</strong> &mdash; what to build next</li>
+                    <li><strong>Plan approval</strong> &mdash; review proposal before impl</li>
+                    <li><strong>Code review</strong> &mdash; approve PR before merge</li>
+                    <li><strong>Validation sign-off</strong> &mdash; accept deployment</li>
+                    <li><strong>Security escalation</strong> &mdash; human-only decisions</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Cross-Application Patterns</h3>
+                <ul class="medium">
+                    <li>Epic tracking via Beads issue tracker</li>
+                    <li><code>/prioritize-proposals</code> for portfolio ranking</li>
+                    <li>Coordinator memory persists across sessions</li>
+                    <li>OpenSpec specs as shared source of truth</li>
+                    <li><em>Strategic decisions stay with humans</em></li>
+                </ul>
+            </div>
+        </div>
+        <aside class="notes">
+            Level 3 is intentionally human-driven. The system optimizes for tactical parallelism,
+            not strategic portfolio management. Humans make all "what to build" decisions.
+            Automation increases as scope narrows: Level 3 (human) → Level 2 (assisted) → Level 1 (automated).
         </aside>
     </section>
 
@@ -220,13 +253,14 @@
     <!-- Workflow Overview -->
     <section>
         <h2>Parallel Workflow</h2>
+        <p class="subtitle">Falls back to linear single-agent mode when coordinator unavailable</p>
         <div class="diagram-slide">
             <img src="10-workflow-overview.svg" alt="Parallel Workflow">
         </div>
         <aside class="notes">
             7 parallel skills mirror the linear workflow but add: resource claim analysis, contracts,
             work-packages.yaml, DAG scheduling, vendor-diverse reviews, merge queue.
-            Falls back to linear when coordinator is unavailable.
+            Falls back to linear when coordinator is unavailable — graceful degradation.
         </aside>
     </section>
 
@@ -431,19 +465,20 @@
                 </ul>
             </div>
             <div>
-                <h3>Skills</h3>
+                <h3>Skills &amp; System</h3>
                 <ul>
-                    <li><strong>7</strong> parallel skills</li>
-                    <li><strong>7</strong> linear skills</li>
+                    <li><strong>3</strong> coordination levels</li>
+                    <li><strong>7</strong> parallel + <strong>7</strong> linear skills</li>
                     <li><strong>341</strong> skill tests</li>
                     <li><strong>2</strong> transport layers (MCP + HTTP)</li>
                     <li><strong>3</strong> supported agents (Claude, Codex, Gemini)</li>
-                    <li><strong>11</strong>-step worker protocol</li>
+                    <li><strong>5</strong> human approval gates</li>
                 </ul>
             </div>
         </div>
         <aside class="notes">
             All implemented, tested, and in production use.
+            Three coordination levels: intra-feature (automated), cross-feature (assisted), program (human).
         </aside>
     </section>
 
@@ -452,7 +487,7 @@
         <h1>Thank You</h1>
         <p>Key Takeaways:</p>
         <ul>
-            <li><strong>Two-level parallelism</strong> &mdash; cross-feature + intra-feature</li>
+            <li><strong>Three-level coordination</strong> &mdash; intra-feature + cross-feature + program</li>
             <li><strong>Contract-first</strong> &mdash; agents coordinate through shared interfaces</li>
             <li><strong>Safety by design</strong> &mdash; locks, scopes, guardrails, audit</li>
             <li><strong>Graceful degradation</strong> &mdash; always falls back to single-agent</li>

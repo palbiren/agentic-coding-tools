@@ -29,6 +29,8 @@ graph LR
     WAIT --> B2
     B3 -- "FAIL" --> ESC["Escalate"]
     B7 -- "SCOPE\nVIOLATION" --> ESC
+    B8 -- "STUCK" --> CB["Circuit\nBreaker"]
+    CB --> ESC
 
     style B1 fill:#e8f5e9,stroke:#4CAF50,stroke-width:2px
     style B2 fill:#fff3e0,stroke:#FF9800,stroke-width:2px
@@ -43,3 +45,4 @@ graph LR
     style B11 fill:#efebe9,stroke:#795548,stroke-width:2px
     style WAIT fill:#fff9c4,stroke:#FDD835,stroke-width:2px
     style ESC fill:#ffcdd2,stroke:#E53935,stroke-width:2px
+    style CB fill:#e1bee7,stroke:#8E24AA,stroke-width:2px

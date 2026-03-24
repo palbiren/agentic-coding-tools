@@ -50,12 +50,15 @@ See [Two-Level Parallel Development](docs/two-level-parallel-agentic-development
 
 ## Worktree Management
 
+- **Launcher invariant**: The shared checkout is **read-only**. Every skill that modifies git state (plan, implement, cleanup) MUST work in a worktree, never the shared checkout. This prevents conflicts when multiple agents run from the same directory.
 - **Location**: `.git-worktrees/<change-id>/` for single-agent, `.git-worktrees/<change-id>/<agent-id>/` for parallel
 - **Registry**: `.git-worktrees/.registry.json` tracks owner, branch, heartbeat, pin status
 - **Commands**: `python3 scripts/worktree.py setup|teardown|status|detect|heartbeat|list|pin|unpin|gc`
+- **Merge**: `python3 scripts/merge_worktrees.py <change-id> <pkg-id>...` merges package branches into feature branch
 - **Agent-id**: Pass `--agent-id` for parallel disambiguation. Omit for single-agent (backward compatible)
 - **Pin**: Use `pin` to protect worktrees from GC during overnight pauses or waiting on input
 - **GC**: Default 24h stale threshold. Pinned worktrees survive GC unless `--force`
+- **Branch naming**: Agent branches use `--` separator: `openspec/<change-id>--<agent-id>`. Git cannot have both `refs/heads/a/b` and `refs/heads/a/b/c`, so `/` between change-id and agent-id would conflict with the feature branch `openspec/<change-id>`.
 - **Rule**: One agent, one worktree, one branch. Never share a worktree between agents
 
 ## Documentation

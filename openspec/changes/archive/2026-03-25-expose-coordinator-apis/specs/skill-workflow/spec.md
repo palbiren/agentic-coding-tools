@@ -1,6 +1,6 @@
 # Delta Spec: skill-workflow
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Parallel Cleanup Feature Coordinator Integration
 

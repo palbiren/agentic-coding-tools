@@ -82,8 +82,6 @@ The CLI SHALL expose subcommands for all existing coordinator capabilities: `loc
 - WHEN a user runs `coordination-cli unknown-cmd`
 - THEN the CLI SHALL print an error and available subcommands to stderr
 
-## MODIFIED Requirements
-
 ### Requirement: Bridge Endpoint Probes
 
 The coordination bridge SHALL probe only canonical endpoint paths, removing stale variants.

@@ -161,7 +161,7 @@ packages:
 **Key invariants**:
 - Parallel packages have non-overlapping `write_allow` scopes (except `wp-integration`)
 - Lock keys follow namespace conventions (see [Lock Key Namespaces](#lock-key-namespaces))
-- DAG must be acyclic (validated via Kahn's algorithm in [`scripts/validate_work_packages.py`](../scripts/validate_work_packages.py))
+- DAG must be acyclic (validated via Kahn's algorithm in [`skills/validate-packages/scripts/validate_work_packages.py`](../skills/validate-packages/scripts/validate_work_packages.py))
 
 ### Contract-First Development
 
@@ -193,7 +193,7 @@ Package states: `PENDING → READY → SUBMITTED → IN_PROGRESS → COMPLETED |
 
 ### Scope Enforcement
 
-**Implementation**: [`scope_checker.py`](../skills/parallel-implement-feature/scripts/scope_checker.py), [`scripts/validate_work_result.py`](../scripts/validate_work_result.py)
+**Implementation**: [`scope_checker.py`](../skills/parallel-implement-feature/scripts/scope_checker.py), [`skills/validate-packages/scripts/validate_work_result.py`](../skills/validate-packages/scripts/validate_work_result.py)
 
 Post-hoc deterministic check at step B7 of the worker protocol:
 1. Run `git diff --name-only` to get modified files
@@ -203,11 +203,11 @@ Post-hoc deterministic check at step B7 of the worker protocol:
 
 ### Worktree Management
 
-**Implementation**: [`scripts/worktree.py`](../scripts/worktree.py)
+**Implementation**: [`skills/worktree/scripts/worktree.py`](../skills/worktree/scripts/worktree.py)
 
 Each work package gets an isolated git worktree:
 - Location: `.git-worktrees/<change-id>/<agent-id>/`
-- Lifecycle: `python3 scripts/worktree.py setup|teardown|status|detect|heartbeat|list|pin|unpin|gc`
+- Lifecycle: `python3 skills/worktree/scripts/worktree.py setup|teardown|status|detect|heartbeat|list|pin|unpin|gc`
 - Rule: one agent, one worktree, one branch — never shared
 
 ---
@@ -403,7 +403,7 @@ All lock keys are stored in the `file_locks.file_path` column — the coordinato
 | `feature:` | `feature:<id>:<purpose>` | `feature:FEAT-123:pause` | Feature-level signals (pause/unpause) |
 
 **Documentation**: [`docs/lock-key-namespaces.md`](lock-key-namespaces.md)
-**Validation**: [`scripts/validate_work_packages.py`](../scripts/validate_work_packages.py) (canonicalization check), [`locks.py`](../agent-coordinator/src/locks.py) (`LOGICAL_LOCK_KEY_PATTERN`)
+**Validation**: [`skills/validate-packages/scripts/validate_work_packages.py`](../skills/validate-packages/scripts/validate_work_packages.py) (canonicalization check), [`locks.py`](../agent-coordinator/src/locks.py) (`LOGICAL_LOCK_KEY_PATTERN`)
 
 ### Work Queue
 
@@ -472,7 +472,7 @@ Conflict-free port blocks for parallel docker-compose stacks:
 
 | Step | Action | Notes |
 |------|--------|-------|
-| C1 | Validate all results (schema, revision matching, scope compliance) | [`validate_work_result.py`](../scripts/validate_work_result.py) |
+| C1 | Validate all results (schema, revision matching, scope compliance) | [`validate_work_result.py`](../skills/validate-packages/scripts/validate_work_result.py) |
 | C2 | Process escalations (deterministic action per type) | [`escalation_handler.py`](../skills/parallel-implement-feature/scripts/escalation_handler.py) |
 | C3 | Dispatch per-package reviews | `/parallel-review-implementation` skill |
 | C4 | Integration gate (all packages completed + reviewed, no blocking dispositions) | `IntegrationGateStatus`: PASS, BLOCKED_FIX, BLOCKED_ESCALATE |
@@ -583,7 +583,7 @@ Immutable, append-only logging of all coordination operations. Best-effort (non-
 | Circuit breaker | **Complete** | `circuit_breaker.py` |
 | All 7 parallel skills | **Complete** | `skills/parallel-*/SKILL.md` |
 | Review schemas (plan + implementation) | **Complete** | `review-findings.schema.json` |
-| Worktree management | **Complete** | `scripts/worktree.py` |
+| Worktree management | **Complete** | `skills/worktree/scripts/worktree.py` |
 
 ### Partially Implemented
 

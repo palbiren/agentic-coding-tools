@@ -8,9 +8,9 @@ This codebase implements a sophisticated **two-level parallel agentic developmen
 
 ## 1. Git Worktree Management Infrastructure
 
-### 1.1 Worktree Lifecycle: `scripts/worktree.py`
+### 1.1 Worktree Lifecycle: `skills/worktree/scripts/worktree.py`
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/scripts/worktree.py`
+**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/skills/worktree/scripts/worktree.py`
 
 **Purpose:** Manages the complete lifecycle of git worktrees for isolated parallel feature development.
 
@@ -612,7 +612,7 @@ pending + all depends_on completed → claimable
 
 **Auto-generation Command:**
 ```bash
-python3 scripts/parallel_zones.py --analyze agent-coordinator/src > \
+python3 skills/refresh-architecture/scripts/parallel_zones.py --analyze agent-coordinator/src > \
   docs/architecture-analysis/parallel_zones.json
 ```
 
@@ -783,20 +783,20 @@ bash skills/install.sh --mode rsync --force --deps none --python-tools none
 
 ```bash
 # Orchestrator (main repo)
-eval "$(python3 scripts/worktree.py detect)"  # IN_WORKTREE, MAIN_REPO, OPENSPEC_PATH
+eval "$(python3 skills/worktree/scripts/worktree.py detect)"  # IN_WORKTREE, MAIN_REPO, OPENSPEC_PATH
 
 # Setup
-eval "$(python3 scripts/worktree.py setup $CHANGE_ID --branch openspec/$CHANGE_ID)"
+eval "$(python3 skills/worktree/scripts/worktree.py setup $CHANGE_ID --branch openspec/$CHANGE_ID)"
 cd $WORKTREE_PATH
 
 # Worker code (in worktree)
 git checkout $BRANCH
 # ... implementation work ...
-python3 scripts/worktree.py detect  # Output confirms IN_WORKTREE=true, MAIN_REPO=../..
+python3 skills/worktree/scripts/worktree.py detect  # Output confirms IN_WORKTREE=true, MAIN_REPO=../..
 
 # Cleanup (back in main repo)
 git checkout main
-python3 scripts/worktree.py teardown $CHANGE_ID
+python3 skills/worktree/scripts/worktree.py teardown $CHANGE_ID
 ```
 
 ### 10.3 Resource Claim Declaration Pattern

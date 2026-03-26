@@ -33,22 +33,22 @@ The `docs/architecture-analysis/` directory contains auto-generated structural a
 ## Refresh Commands
 ```bash
 make architecture              # Full refresh (includes tree-sitter enrichment if available)
-make architecture-enrichment   # Tree-sitter enrichment only (requires scripts venv)
+make architecture-enrichment   # Tree-sitter enrichment only (requires skills venv)
 make architecture-validate     # Validate only
 make architecture-views        # Regenerate views only
 make architecture-report       # Generate narrative report
 make architecture-diff BASE_SHA=<sha>  # Compare to baseline
 make architecture-feature FEATURE="file1,file2"  # Feature slice
-make scripts-setup             # Install scripts venv (tree-sitter + analysis deps)
+cd skills && uv sync --all-extras  # Install skills venv (tree-sitter + analysis deps)
 ```
 
 ## Tree-sitter Enrichment
 
 The enrichment pipeline uses tree-sitter for concrete syntax tree (CST) analysis:
 
-1. **SQL Analyzer** (`scripts/analyze_sql_treesitter.py`) — CST-based SQL migration parsing, replaces regex when available
-2. **Enrichment Engine** (`scripts/enrich_with_treesitter.py`) — Cross-language pattern extraction (Python + TypeScript)
-3. **Comment Linker** (`scripts/insights/comment_linker.py`) — Maps comments/TODOs to architecture graph nodes
-4. **Pattern Reporter** (`scripts/insights/pattern_reporter.py`) — Aggregates findings into actionable insights
+1. **SQL Analyzer** (`skills/refresh-architecture/scripts/analyze_sql_treesitter.py`) — CST-based SQL migration parsing, replaces regex when available
+2. **Enrichment Engine** (`skills/refresh-architecture/scripts/enrich_with_treesitter.py`) — Cross-language pattern extraction (Python + TypeScript)
+3. **Comment Linker** (`skills/refresh-architecture/scripts/insights/comment_linker.py`) — Maps comments/TODOs to architecture graph nodes
+4. **Pattern Reporter** (`skills/refresh-architecture/scripts/insights/pattern_reporter.py`) — Aggregates findings into actionable insights
 
-Setup: `make scripts-setup` (installs tree-sitter dependencies in `scripts/.venv`)
+Setup: `cd skills && uv sync --all-extras` (installs tree-sitter dependencies in `skills/.venv`)

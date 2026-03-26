@@ -33,7 +33,7 @@ Workflow skills integrate coordinator features through a transport-aware capabil
 ### Transport Model
 
 - **CLI runtimes (Claude Codex CLI, Codex CLI, Gemini CLI)**: use MCP tools directly.
-- **Web/Cloud runtimes (Claude Web, Codex Cloud/Web, Gemini Web/Cloud)**: use HTTP detection/operations via `scripts/coordination_bridge.py`.
+- **Web/Cloud runtimes (Claude Web, Codex Cloud/Web, Gemini Web/Cloud)**: use HTTP detection/operations via `skills/coordination-bridge/scripts/coordination_bridge.py`.
 - **Fallback**: when neither transport is available, skills run in standalone mode.
 
 All integrated skills set:

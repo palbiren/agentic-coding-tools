@@ -35,7 +35,7 @@ Set capability flags from discovered MCP tool names:
 
 ### HTTP (Web/Cloud runtimes)
 
-Set capability flags from `scripts/coordination_bridge.py detect`:
+Set capability flags from `skills/coordination-bridge/scripts/coordination_bridge.py detect`:
 
 - `CAN_LOCK` from `/locks/*`
 - `CAN_QUEUE_WORK` from `/work/*`
@@ -105,7 +105,7 @@ The `check_coordinator.py` script is the preferred method — it works in all ru
 
 ## HTTP Environment Defaults
 
-`scripts/coordination_bridge.py` resolves coordinator settings in this order:
+`skills/coordination-bridge/scripts/coordination_bridge.py` resolves coordinator settings in this order:
 
 1. Explicit function/CLI args
 2. `COORDINATION_API_URL` / `COORDINATION_API_KEY`

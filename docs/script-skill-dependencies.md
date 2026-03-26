@@ -1,18 +1,22 @@
 # Script-to-Skill Dependency Report
 
+> Migration completed 2026-03-25. The `scripts/` directory has been eliminated.
+
 > Generated: 2026-03-25 | Source: analysis of `skills/*/SKILL.md` and `skills/*/scripts/*.py`
 
 ## Problem Statement
 
-Skills reference Python scripts at repo-root paths (e.g., `scripts/worktree.py`) that only
+~~Skills reference Python scripts at repo-root paths (e.g., `scripts/worktree.py`) that only
 exist in the source repository. When skills are synced to other repos via `install.sh`, these
-scripts are absent, breaking skill execution.
+scripts are absent, breaking skill execution.~~
 
-## Repository-Level Script Dependencies
+**Migration COMPLETE (2026-03-25)**: All scripts have been moved from `scripts/` into skill directories under `skills/`. The `scripts/` directory no longer exists. The shared Python dependency manifest (`pyproject.toml`, `uv.lock`) now lives at `skills/` with venv at `skills/.venv`.
 
-Scripts in `scripts/` that are referenced by skills via direct path invocations in SKILL.md:
+## Script Locations (Post-Migration)
 
-### scripts/worktree.py (21 skills)
+Scripts that were formerly in `scripts/` are now located in their respective skill directories:
+
+### skills/worktree/scripts/worktree.py (21 skills)
 
 Worktree lifecycle management — the foundational script for the launcher invariant.
 
@@ -40,7 +44,7 @@ Worktree lifecycle management — the foundational script for the launcher invar
 | parallel-explore-feature | _(none — read-only)_ |
 | merge-pull-requests | _(none — read-only)_ |
 
-### scripts/coordination_bridge.py (12 skills)
+### skills/coordination-bridge/scripts/coordination_bridge.py (12 skills)
 
 HTTP fallback for coordinator when MCP transport is unavailable.
 
@@ -59,7 +63,7 @@ HTTP fallback for coordinator when MCP transport is unavailable.
 | cleanup-feature (alias) | detect, try_handoff_write |
 | iterate-on-plan (alias) | detect, try_handoff_read |
 
-### scripts/merge_worktrees.py (2 skills)
+### skills/worktree/scripts/merge_worktrees.py (2 skills)
 
 Merges parallel agent branches into the feature branch.
 
@@ -68,7 +72,7 @@ Merges parallel agent branches into the feature branch.
 | parallel-implement-feature | merge (by change-id + pkg-ids) |
 | parallel-cleanup-feature | merge (final integration) |
 
-### scripts/validate_work_packages.py (2 skills)
+### skills/validate-packages/scripts/validate_work_packages.py (2 skills)
 
 Validates `work-packages.yaml` against the JSON schema.
 
@@ -77,7 +81,7 @@ Validates `work-packages.yaml` against the JSON schema.
 | parallel-plan-feature | validate |
 | parallel-implement-feature | validate (pre-dispatch) |
 
-### scripts/parallel_zones.py (2 skills)
+### skills/refresh-architecture/scripts/parallel_zones.py (2 skills)
 
 Validates scope non-overlap for parallel work packages.
 
@@ -86,7 +90,7 @@ Validates scope non-overlap for parallel work packages.
 | parallel-plan-feature | --validate-packages |
 | parallel-implement-feature | --validate-packages (pre-dispatch) |
 
-### scripts/validate_flows.py (2 skills)
+### skills/validate-flows/scripts/validate_flows.py (2 skills)
 
 Architecture flow validation during implementation.
 
@@ -95,7 +99,7 @@ Architecture flow validation during implementation.
 | linear-implement-feature | validate |
 | linear-validate-feature | validate |
 
-### scripts/validate_work_result.py (1 skill)
+### skills/validate-packages/scripts/validate_work_result.py (1 skill)
 
 Validates work results against the schema.
 
@@ -103,7 +107,7 @@ Validates work results against the schema.
 |-------|----------------|
 | parallel-validate-feature | validate |
 
-### scripts/refresh_architecture.sh (1 skill)
+### skills/refresh-architecture/scripts/refresh_architecture.sh (1 skill)
 
 Regenerates architecture analysis artifacts.
 
@@ -128,26 +132,26 @@ These scripts are bundled inside their skill directories and are already synced 
 
 ## Cross-Skill Python Imports
 
-Some skill-local scripts import from repo-level `scripts/` via `sys.path` manipulation:
+Some skill-local scripts import from other skill directories via `sys.path` manipulation:
 
 | Importing Script | Imports From |
 |-----------------|--------------|
-| `parallel-implement-feature/scripts/dag_scheduler.py` | `scripts/validate_work_packages.py` |
-| `parallel-implement-feature/scripts/scope_checker.py` | `scripts/parallel_zones.py` |
+| `parallel-implement-feature/scripts/dag_scheduler.py` | `skills/validate-packages/scripts/validate_work_packages.py` |
+| `parallel-implement-feature/scripts/scope_checker.py` | `skills/refresh-architecture/scripts/parallel_zones.py` |
 
 ## Dependency Graph (Mermaid)
 
 ```mermaid
 graph TD
-    subgraph "Infrastructure Scripts"
-        WT[worktree.py]
-        CB[coordination_bridge.py]
-        MW[merge_worktrees.py]
-        VWP[validate_work_packages.py]
-        PZ[parallel_zones.py]
-        VF[validate_flows.py]
-        VWR[validate_work_result.py]
-        RA[refresh_architecture.sh]
+    subgraph "Infrastructure Scripts (in skills/)"
+        WT[skills/worktree/scripts/worktree.py]
+        CB[skills/coordination-bridge/scripts/coordination_bridge.py]
+        MW[skills/worktree/scripts/merge_worktrees.py]
+        VWP[skills/validate-packages/scripts/validate_work_packages.py]
+        PZ[skills/refresh-architecture/scripts/parallel_zones.py]
+        VF[skills/validate-flows/scripts/validate_flows.py]
+        VWR[skills/validate-packages/scripts/validate_work_result.py]
+        RA[skills/refresh-architecture/scripts/refresh_architecture.sh]
     end
 
     subgraph "Linear Skills"
@@ -201,9 +205,9 @@ graph TD
     OBW --> WT
 ```
 
-## Migration Plan: Full Elimination of scripts/
+## Migration Result: Full Elimination of scripts/ (COMPLETE)
 
-All scripts move into skill directories as the single source of truth. The `scripts/` directory is deleted entirely.
+All scripts have been moved into skill directories as the single source of truth. The `scripts/` directory has been deleted entirely.
 
 | Destination Skill | Scripts | Tests | Type |
 |-------------------|---------|-------|------|
@@ -214,4 +218,4 @@ All scripts move into skill directories as the single source of truth. The `scri
 | `skills/refresh-architecture/` | All `analyze_*.py`, `compile_architecture_graph.py`, `diff_architecture.py`, `enrich_with_treesitter.py`, `generate_views.py`, `run_architecture.py`, `refresh_architecture.sh`, `treesitter_queries/`, `insights/`, `reports/` | All architecture tests + `conftest.py` + `fixtures/` | Existing (expanded) |
 | `skills/bao-vault/` | `bao_seed.py` | `test_bao_seed.py` | New infra |
 
-`scripts/pyproject.toml` and `scripts/uv.lock` move to `skills/` as the shared Python dependency manifest.
+`pyproject.toml` and `uv.lock` now live at `skills/` as the shared Python dependency manifest (venv at `skills/.venv`).

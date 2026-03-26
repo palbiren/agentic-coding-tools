@@ -26,18 +26,18 @@ All settings use `git config --local` — they only affect this repository, not 
 
 ## Worktree Bootstrap
 
-When creating a new worktree via `scripts/worktree.py setup`, the bootstrap script automatically:
+When creating a new worktree via `skills/worktree/scripts/worktree.py setup`, the bootstrap script automatically:
 
 1. Copies `.env` and `.secrets.yaml` from the main repo
 2. Runs `uv sync --all-extras` in `agent-coordinator/`
-3. Runs `uv sync` in `scripts/`
+3. Runs `uv sync` in `skills/`
 4. Syncs skills via `skills/install.sh`
 5. Shares the uv cache across worktrees (`UV_CACHE_DIR`)
 
 To skip bootstrapping (e.g., for doc-only changes):
 
 ```bash
-python3 scripts/worktree.py setup my-feature --no-bootstrap
+python3 skills/worktree/scripts/worktree.py setup my-feature --no-bootstrap
 ```
 
 ## GitHub Merge Queue

@@ -125,7 +125,7 @@ curl -s "https://your-app.railway.app/health"
 # Set SSRF allowlist for cloud URL
 export COORDINATION_ALLOWED_HOSTS="your-app.railway.app"
 
-python scripts/coordination_bridge.py detect \
+python3 skills/coordination-bridge/scripts/coordination_bridge.py detect \
   --http-url "https://your-app.railway.app" \
   --api-key "<your-api-key>"
 ```
@@ -152,7 +152,7 @@ export DB_BACKEND=postgres
 export POSTGRES_DSN=postgresql://postgres:postgres@localhost:54322/postgres
 
 # Run the API
-python -m src.coordination_api
+python3 agent-coordinator/run_mcp.py
 ```
 
 ## Troubleshooting

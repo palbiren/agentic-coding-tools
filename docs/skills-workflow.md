@@ -160,7 +160,7 @@ Integrated skills use a shared preamble (`docs/coordination-detection-template.m
 Transport model:
 
 - CLI runtimes: MCP detection by tool availability
-- Web/Cloud runtimes: HTTP detection via `scripts/coordination_bridge.py`
+- Web/Cloud runtimes: HTTP detection via `skills/coordination-bridge/scripts/coordination_bridge.py`
 - No coordinator: fallback to standalone skill behavior
 
 Hook execution is capability-gated: a hook runs only when its `CAN_*` flag is true.
@@ -212,7 +212,7 @@ Run once per runtime:
 Baseline HTTP assertion command:
 
 ```bash
-python scripts/coordination_bridge.py detect --http-url "$COORDINATION_API_URL" --api-key "$COORDINATION_API_KEY"
+python3 skills/coordination-bridge/scripts/coordination_bridge.py detect --http-url "$COORDINATION_API_URL" --api-key "$COORDINATION_API_KEY"
 ```
 
 Assertions per runtime:
@@ -417,7 +417,7 @@ Generated OpenSpec assets for Claude, Codex, and Gemini must map equivalently to
 The parallel workflow decomposes features into work packages defined in `work-packages.yaml`:
 
 1. **Plan** — `/parallel-plan-feature` produces `contracts/` and `work-packages.yaml` with package definitions, dependency DAG, scope declarations, and lock key claims.
-2. **Validate** — `scripts/validate_work_packages.py` validates against `work-packages.schema.json`: schema compliance, DAG acyclicity, lock key canonicalization, and scope non-overlap via `scripts/parallel_zones.py --validate-packages`.
+2. **Validate** — `skills/validate-packages/scripts/validate_work_packages.py` validates against `work-packages.schema.json`: schema compliance, DAG acyclicity, lock key canonicalization, and scope non-overlap via `skills/refresh-architecture/scripts/parallel_zones.py --validate-packages`.
 3. **Submit** — The orchestrator submits each package as a work queue task with `input_data` containing the package definition and context slice.
 4. **Execute** — Per-package agents claim tasks, acquire locks, implement within scope boundaries, and produce structured results conforming to `work-queue-result.schema.json`.
 5. **Review** — `/parallel-review-implementation` dispatches independent reviews per package. Review findings use `review-findings.schema.json` with dispositions: `fix`, `regenerate`, `accept`, `escalate`.

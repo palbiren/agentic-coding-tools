@@ -238,7 +238,7 @@ class ConsensusSynthesizer:
         blocking = sum(
             1
             for cf in consensus_findings
-            if cf.status == "confirmed" and cf.recommended_disposition == "fix"
+            if (cf.status == "confirmed" and cf.recommended_disposition == "fix")
             or cf.status == "disagreement"
         )
 

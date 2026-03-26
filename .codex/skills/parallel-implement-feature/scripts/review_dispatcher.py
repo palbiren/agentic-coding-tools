@@ -70,7 +70,10 @@ def classify_error(stderr: str) -> ErrorClass:
 
 
 # ---------------------------------------------------------------------------
-# Data classes
+# Data classes — canonical definitions in agent-coordinator/src/agents_config.py.
+# Duplicated here so the dispatcher works standalone (in repos without
+# agent-coordinator). When agent-coordinator is available, from_agents_yaml()
+# converts its types to these.
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -188,6 +191,7 @@ class CliVendorAdapter:
         models_attempted: list[str] = []
         last_error = ""
         last_error_class = ErrorClass.UNKNOWN
+        dispatch_start = time.monotonic()
 
         for model in models_to_try:
             model_name = model or "(default)"
@@ -269,7 +273,7 @@ class CliVendorAdapter:
             vendor=self.vendor,
             success=False,
             models_attempted=models_attempted,
-            elapsed_seconds=0.0,
+            elapsed_seconds=time.monotonic() - dispatch_start,
             error=last_error[:500] if last_error else "Unknown error",
             error_class=last_error_class,
         )
@@ -323,67 +327,125 @@ class CliVendorAdapter:
                 error="Mode is not configured for async dispatch",
             )
 
-        cmd = self.build_command(mode, prompt)
-        stdin_text = prompt if self.cli_config.prompt_via_stdin else None
-        start = time.monotonic()
+        # Model fallback: try primary, then each fallback on capacity errors
+        models_to_try: list[str | None] = [self.cli_config.model]
+        models_to_try.extend(self.cli_config.model_fallbacks)
 
-        try:
-            result = subprocess.run(
-                cmd,
-                input=stdin_text,
-                capture_output=True,
-                text=True,
-                timeout=120,  # submit timeout (not execution timeout)
-                cwd=str(cwd),
+        models_attempted: list[str] = []
+
+        for model in models_to_try:
+            model_name = model or "(default)"
+            models_attempted.append(model_name)
+
+            cmd = self.build_command(mode, prompt, model)
+            stdin_text = prompt if self.cli_config.prompt_via_stdin else None
+            start = time.monotonic()
+
+            try:
+                result = subprocess.run(
+                    cmd,
+                    input=stdin_text,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,  # submit timeout (not execution timeout)
+                    cwd=str(cwd),
+                )
+            except subprocess.TimeoutExpired:
+                return ReviewResult(
+                    vendor=self.vendor, success=False,
+                    models_attempted=models_attempted,
+                    error="Timeout submitting async task",
+                    error_class=ErrorClass.TRANSIENT,
+                )
+
+            combined = result.stdout + "\n" + result.stderr
+            elapsed = time.monotonic() - start
+
+            # Check for capacity errors before extracting task ID
+            if result.returncode != 0:
+                error_class = classify_error(result.stderr)
+                if error_class == ErrorClass.AUTH:
+                    relogin = _RELOGIN_COMMANDS.get(
+                        self.cli_config.command,
+                        f"{self.cli_config.command} login",
+                    )
+                    print(
+                        f"[WARN] {self.vendor} async dispatch failed: "
+                        f"auth expired.\n       Run: {relogin}",
+                        file=sys.stderr,
+                    )
+                    return ReviewResult(
+                        vendor=self.vendor, success=False,
+                        models_attempted=models_attempted,
+                        elapsed_seconds=elapsed,
+                        error=f"Auth expired. Run: {relogin}",
+                        error_class=ErrorClass.AUTH,
+                    )
+                if error_class == ErrorClass.CAPACITY:
+                    logger.info(
+                        "%s async model %s capacity exhausted, trying fallback",
+                        self.vendor, model_name,
+                    )
+                    continue
+                # Non-retryable error
+                return ReviewResult(
+                    vendor=self.vendor, success=False,
+                    models_attempted=models_attempted,
+                    elapsed_seconds=elapsed,
+                    error=result.stderr[:500],
+                    error_class=error_class,
+                )
+
+            # Extract task ID from output
+            match = re.search(mode_config.poll.task_id_pattern, combined)
+            if not match:
+                return ReviewResult(
+                    vendor=self.vendor, success=False,
+                    models_attempted=models_attempted,
+                    elapsed_seconds=elapsed,
+                    error=f"Could not extract task ID from output: {combined[:300]}",
+                    error_class=ErrorClass.UNKNOWN,
+                )
+
+            # Handle multi-group alternation patterns
+            task_id = next(
+                (g for g in match.groups() if g is not None),
+                match.group(0),
             )
-        except subprocess.TimeoutExpired:
-            return ReviewResult(
-                vendor=self.vendor, success=False,
-                error="Timeout submitting async task",
-                error_class=ErrorClass.TRANSIENT,
+            logger.info(
+                "Async task submitted for %s: task_id=%s", self.vendor, task_id,
             )
 
-        combined = result.stdout + "\n" + result.stderr
-        elapsed = time.monotonic() - start
-
-        # Extract task ID from output
-        match = re.search(mode_config.poll.task_id_pattern, combined)
-        if not match:
             return ReviewResult(
-                vendor=self.vendor, success=False,
+                vendor=self.vendor,
+                success=True,
+                models_attempted=models_attempted,
                 elapsed_seconds=elapsed,
-                error=f"Could not extract task ID from output: {combined[:300]}",
-                error_class=ErrorClass.UNKNOWN,
+                async_dispatch=True,
+                task_id=task_id,
             )
 
-        # Handle multi-group alternation patterns (e.g., "pattern1|pattern2")
-        # Take the first non-None group
-        task_id = next(
-            (g for g in match.groups() if g is not None),
-            match.group(0),
-        )
-        logger.info(
-            "Async task submitted for %s: task_id=%s", self.vendor, task_id,
-        )
-
+        # All models exhausted
         return ReviewResult(
             vendor=self.vendor,
-            success=True,  # submission succeeded
-            elapsed_seconds=elapsed,
-            async_dispatch=True,
-            task_id=task_id,
+            success=False,
+            models_attempted=models_attempted,
+            error="All models exhausted for async dispatch",
+            error_class=ErrorClass.CAPACITY,
         )
 
     def poll_for_result(
         self,
         task_id: str,
         poll_config: PollConfig,
+        cwd: Path | None = None,
     ) -> ReviewResult:
         """Poll an async task until completion or timeout.
 
         Args:
             task_id: Task identifier extracted from async dispatch output.
             poll_config: Polling configuration from the mode config.
+            cwd: Working directory for poll commands (optional).
 
         Returns:
             ReviewResult with findings if successful, error otherwise.
@@ -412,6 +474,7 @@ class CliVendorAdapter:
                     capture_output=True,
                     text=True,
                     timeout=30,
+                    cwd=str(cwd) if cwd else None,
                 )
             except subprocess.TimeoutExpired:
                 logger.warning("Poll command timed out, retrying")
@@ -562,7 +625,7 @@ class ReviewOrchestrator:
                 if submit_result.success and submit_result.task_id and mode_config.poll:
                     # Poll for completion
                     poll_result = adapter.poll_for_result(
-                        submit_result.task_id, mode_config.poll,
+                        submit_result.task_id, mode_config.poll, cwd=cwd,
                     )
                     results.append(poll_result)
                 else:

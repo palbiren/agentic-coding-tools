@@ -1940,10 +1940,10 @@ Dispatch modes and their CLI args SHALL be read from `agents.yaml` under `cli.di
 - WHEN the adapter builds the command for review mode
 - THEN the command is `["codex", "exec", "-s", "read-only", "<prompt>"]`
 
-#### Scenario: Alternative impl mode reads args from config
+#### Scenario: Alternative mode reads args from config
 
-- GIVEN agents.yaml contains `gemini-local.cli.dispatch_modes.alternative_impl.args: [--approval-mode, yolo]`
-- WHEN the adapter builds the command for alternative_impl mode
+- GIVEN agents.yaml contains `gemini-local.cli.dispatch_modes.alternative.args: [--approval-mode, yolo]`
+- WHEN the adapter builds the command for alternative mode
 - THEN the command is `["gemini", "--approval-mode", "yolo", "<prompt>"]`
 
 ### Requirement: CLI Configuration Schema
@@ -1981,8 +1981,8 @@ The `CliVendorAdapter` SHALL implement a `can_dispatch(mode)` method that verifi
 
 #### Scenario: Missing dispatch mode
 
-- GIVEN an agent's cli config has no `alternative_impl` dispatch mode
-- WHEN `can_dispatch("alternative_impl")` is called
+- GIVEN an agent's cli config has no `alternative` dispatch mode
+- WHEN `can_dispatch("alternative")` is called
 - THEN it returns False
 
 ### Requirement: Model Fallback on Capacity Errors

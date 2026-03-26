@@ -443,7 +443,7 @@ agents:
       dispatch_modes:
         review:
           args: ["exec", "-s", "read-only"]
-        alternative_impl:
+        alternative:
           args: ["exec", "-s", "workspace-write"]
       model_flag: "-m"
       model: null
@@ -490,10 +490,10 @@ class TestCliConfig:
         with_cli = next(e for e in entries if e.name == "test-with-cli")
         assert with_cli.cli is not None
         assert "review" in with_cli.cli.dispatch_modes
-        assert "alternative_impl" in with_cli.cli.dispatch_modes
+        assert "alternative" in with_cli.cli.dispatch_modes
         review_args = with_cli.cli.dispatch_modes["review"].args
         assert review_args == ["exec", "-s", "read-only"]
-        impl_args = with_cli.cli.dispatch_modes["alternative_impl"].args
+        impl_args = with_cli.cli.dispatch_modes["alternative"].args
         assert impl_args == ["exec", "-s", "workspace-write"]
 
     def test_agent_without_cli_section_has_none(self, tmp_path: Path) -> None:

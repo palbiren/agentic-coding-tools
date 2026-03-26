@@ -34,7 +34,7 @@ def _cli_config(
         command=command,
         dispatch_modes={
             "review": ModeConfig(args=review_args or ["exec", "-s", "read-only"]),
-            "alternative_impl": ModeConfig(args=["exec", "-s", "workspace-write"]),
+            "alternative": ModeConfig(args=["exec", "-s", "workspace-write"]),
         },
         model_flag=model_flag,
         model=model,
@@ -136,9 +136,9 @@ class TestBuildCommand:
         assert cmd == ["claude", "--print", "--allowedTools", "Read,Grep,Glob",
                        "--model", "claude-sonnet-4-6", "prompt"]
 
-    def test_alternative_impl_mode(self) -> None:
+    def test_alternative_mode(self) -> None:
         adapter = _adapter()
-        cmd = adapter.build_command("alternative_impl", "Implement this")
+        cmd = adapter.build_command("alternative", "Implement this")
         assert cmd == ["codex", "exec", "-s", "workspace-write", "Implement this"]
 
 

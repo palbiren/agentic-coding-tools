@@ -439,7 +439,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--mode", default="review",
-        help="Dispatch mode (review, alternative_plan, alternative_impl)",
+        help="Dispatch mode: review (read-only) or alternative (write access)",
     )
     parser.add_argument(
         "--prompt", help="Review prompt text (inline)",

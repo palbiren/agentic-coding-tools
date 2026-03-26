@@ -3,7 +3,9 @@
 #
 # The optional `cli` section configures vendor dispatch for multi-vendor
 # review orchestration.  Only agents with a `cli` section can be targets
-# for CLI subprocess dispatch (review, alternative plan/impl).
+# for CLI subprocess dispatch (review or alternative generation).
+# The review_type (plan vs implementation) determines what is being
+# reviewed/generated; the dispatch mode controls sandbox permissions.
 
 agents:
   claude-code-local:
@@ -19,9 +21,7 @@ agents:
       dispatch_modes:
         review:
           args: ["--print", "--allowedTools", "Read,Grep,Glob"]
-        alternative_plan:
-          args: ["--print", "--allowedTools", "Read,Grep,Glob,Write,Edit"]
-        alternative_impl:
+        alternative:
           args: ["--print", "--allowedTools", "Read,Grep,Glob,Write,Edit,Bash"]
       model_flag: "--model"
       model: null
@@ -53,9 +53,7 @@ agents:
       dispatch_modes:
         review:
           args: ["exec", "-s", "read-only"]
-        alternative_plan:
-          args: ["exec", "-s", "workspace-write"]
-        alternative_impl:
+        alternative:
           args: ["exec", "-s", "workspace-write"]
       model_flag: "-m"
       model: null
@@ -85,9 +83,7 @@ agents:
       dispatch_modes:
         review:
           args: ["--approval-mode", "default", "-o", "json"]
-        alternative_plan:
-          args: ["--approval-mode", "auto_edit", "-o", "json"]
-        alternative_impl:
+        alternative:
           args: ["--approval-mode", "yolo"]
       model_flag: "-m"
       model: null

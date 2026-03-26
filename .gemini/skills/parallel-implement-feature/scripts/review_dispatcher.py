@@ -356,7 +356,12 @@ class CliVendorAdapter:
                 error_class=ErrorClass.UNKNOWN,
             )
 
-        task_id = match.group(1)
+        # Handle multi-group alternation patterns (e.g., "pattern1|pattern2")
+        # Take the first non-None group
+        task_id = next(
+            (g for g in match.groups() if g is not None),
+            match.group(0),
+        )
         logger.info(
             "Async task submitted for %s: task_id=%s", self.vendor, task_id,
         )

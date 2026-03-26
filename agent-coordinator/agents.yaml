@@ -168,9 +168,32 @@ agents:
     openbao_role_id: gemini-cloud
     capabilities: [lock, queue, memory]
     description: Remote Gemini agent via Jules extension (async dispatch)
-    # Jules extension dispatches tasks asynchronously via `gemini` CLI.
-    # The prompt instructs Gemini to use /jules for remote execution.
-    # Unlike local dispatch, Jules tasks are async — submit + poll.
-    # The dispatcher needs to handle this differently (poll for completion).
-    # For now, gemini-remote is excluded from synchronous dispatch_and_wait().
-    # Future: add async dispatch support with polling.
+    cli:
+      command: gemini
+      dispatch_modes:
+        review:
+          # Jules dispatch: prompt instructs Gemini to use /jules
+          # The prompt MUST start with "/jules " for the extension to activate
+          args: ["--approval-mode", "default"]
+          async: true
+          poll:
+            # Poll by asking Gemini for Jules task status
+            command_template: ["gemini", "--approval-mode", "default", "/jules status {task_id}"]
+            task_id_pattern: "task[_\\s:]+([a-zA-Z0-9_-]+)|console_link.*?/tasks/([a-zA-Z0-9_-]+)"
+            success_pattern: "completed|finished|merged|done"
+            failure_pattern: "failed|error|cancelled"
+            interval_seconds: 60
+            timeout_seconds: 1800
+        alternative:
+          args: ["--approval-mode", "default"]
+          async: true
+          poll:
+            command_template: ["gemini", "--approval-mode", "default", "/jules status {task_id}"]
+            task_id_pattern: "task[_\\s:]+([a-zA-Z0-9_-]+)|console_link.*?/tasks/([a-zA-Z0-9_-]+)"
+            success_pattern: "completed|finished|merged|done"
+            failure_pattern: "failed|error|cancelled"
+            interval_seconds: 60
+            timeout_seconds: 3600
+      model_flag: "-m"
+      model: null
+      model_fallbacks: ["gemini-2.5-pro"]

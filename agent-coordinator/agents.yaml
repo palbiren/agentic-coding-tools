@@ -138,6 +138,10 @@ agents:
     api_key: "${GEMINI_API_KEY}"
     openbao_role_id: gemini-cloud
     capabilities: [lock, queue, memory]
-    description: Remote Gemini agent (no CLI dispatch — requires API transport, not yet implemented)
-    # No `cli` section — Jules/Gemini has no remote CLI.
-    # Will be dispatched via direct API transport when implemented.
+    description: Remote Gemini agent via Jules extension (async dispatch)
+    # Jules extension dispatches tasks asynchronously via `gemini` CLI.
+    # The prompt instructs Gemini to use /jules for remote execution.
+    # Unlike local dispatch, Jules tasks are async — submit + poll.
+    # The dispatcher needs to handle this differently (poll for completion).
+    # For now, gemini-remote is excluded from synchronous dispatch_and_wait().
+    # Future: add async dispatch support with polling.

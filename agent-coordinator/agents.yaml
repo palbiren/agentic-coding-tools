@@ -1,14 +1,25 @@
 # agents.yaml — Single source of truth for agent identity and permissions.
 # Referenced by profile_loader and setup-coordinator skill.
 #
+# Naming convention: <vendor>-<local|remote>
+#   local  = CLI runs on the developer's machine
+#   remote = CLI dispatches to vendor's cloud infrastructure
+#
 # The optional `cli` section configures vendor dispatch for multi-vendor
 # review orchestration.  Only agents with a `cli` section can be targets
 # for CLI subprocess dispatch (review or alternative generation).
 # The review_type (plan vs implementation) determines what is being
 # reviewed/generated; the dispatch mode controls sandbox permissions.
+#
+# Agents without a `cli` section (e.g., gemini-remote) require direct
+# API dispatch — a future transport not yet implemented.
 
 agents:
-  claude-code-local:
+  # ---------------------------------------------------------------------------
+  # Claude Code
+  # ---------------------------------------------------------------------------
+
+  claude-local:
     type: claude_code
     profile: claude_code_cli
     trust_level: 3
@@ -28,8 +39,7 @@ agents:
       model_fallbacks: ["claude-sonnet-4-6"]
       prompt_via_stdin: true
 
-
-  claude-code-web:
+  claude-remote:
     type: claude_code
     profile: claude_code_web_implementer
     trust_level: 2
@@ -38,7 +48,22 @@ agents:
     api_key: "${CLAUDE_WEB_API_KEY}"
     openbao_role_id: claude-code-web
     capabilities: [lock, queue, memory, guardrails, handoff, discover]
-    description: Claude Code web agent for cloud-based implementation
+    description: Remote Claude Code agent (runs on Anthropic infrastructure)
+    cli:
+      command: claude
+      dispatch_modes:
+        review:
+          args: ["--print", "--remote", "--allowedTools", "Read,Grep,Glob"]
+        alternative:
+          args: ["--print", "--remote", "--allowedTools", "Read,Grep,Glob,Write,Edit,Bash"]
+      model_flag: "--model"
+      model: null
+      model_fallbacks: ["claude-sonnet-4-6"]
+      prompt_via_stdin: true
+
+  # ---------------------------------------------------------------------------
+  # Codex
+  # ---------------------------------------------------------------------------
 
   codex-local:
     type: codex
@@ -59,7 +84,7 @@ agents:
       model: null
       model_fallbacks: ["o3", "gpt-4.1"]
 
-  codex-cloud:
+  codex-remote:
     type: codex
     profile: codex_cloud_worker
     trust_level: 2
@@ -68,7 +93,22 @@ agents:
     api_key: "${CODEX_API_KEY}"
     openbao_role_id: codex-cloud
     capabilities: [lock, queue, memory, guardrails]
-    description: Codex cloud worker for parallel task execution
+    description: Remote Codex agent (runs on OpenAI infrastructure)
+    cli:
+      command: codex
+      dispatch_modes:
+        review:
+          # codex cloud exec requires --env; set CODEX_CLOUD_ENV in environment
+          args: ["cloud", "exec", "--env", "${CODEX_CLOUD_ENV}"]
+        alternative:
+          args: ["cloud", "exec", "--env", "${CODEX_CLOUD_ENV}"]
+      model_flag: "-m"
+      model: null
+      model_fallbacks: ["o3", "gpt-4.1"]
+
+  # ---------------------------------------------------------------------------
+  # Gemini
+  # ---------------------------------------------------------------------------
 
   gemini-local:
     type: gemini
@@ -89,8 +129,7 @@ agents:
       model: null
       model_fallbacks: ["gemini-2.5-pro", "gemini-2.5-flash"]
 
-
-  gemini-cloud:
+  gemini-remote:
     type: gemini
     profile: gemini_cloud_worker
     trust_level: 2
@@ -99,4 +138,6 @@ agents:
     api_key: "${GEMINI_API_KEY}"
     openbao_role_id: gemini-cloud
     capabilities: [lock, queue, memory]
-    description: Gemini cloud agent for parallel task execution
+    description: Remote Gemini agent (no CLI dispatch — requires API transport, not yet implemented)
+    # No `cli` section — Jules/Gemini has no remote CLI.
+    # Will be dispatched via direct API transport when implemented.

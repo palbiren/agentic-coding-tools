@@ -141,9 +141,51 @@ If `CAN_HANDOFF=true`, write a review handoff with:
 - Summary of critical/high findings
 - Overall disposition recommendation (proceed/revise/block)
 
+### 6. Dispatch Multi-Vendor Reviews
+
+After writing your own findings, dispatch reviews to other vendor CLIs and synthesize consensus.
+
+**Write the review prompt** to `openspec/changes/<change-id>/reviews/review-prompt.md` — include instructions to read the plan artifacts and output only valid JSON conforming to `review-findings.schema.json`.
+
+**Dispatch to other vendors** (excluding the current agent's vendor):
+
+```bash
+python3 "<skill-base-dir>/../parallel-implement-feature/scripts/review_dispatcher.py" \
+  --review-type plan \
+  --mode review \
+  --prompt-file "openspec/changes/<change-id>/reviews/review-prompt.md" \
+  --cwd "$(pwd)" \
+  --output-dir "openspec/changes/<change-id>/reviews" \
+  --exclude-vendor claude_code \
+  --timeout 600
+```
+
+This dispatches to all available vendors (Codex, Gemini) configured in `agents.yaml` with `cli` sections. Each vendor runs independently and writes findings to `reviews/findings-<vendor>-plan.json`.
+
+**Synthesize consensus** from all findings (yours + vendor results):
+
+```bash
+python3 "<skill-base-dir>/../parallel-implement-feature/scripts/consensus_synthesizer.py" \
+  --review-type plan \
+  --target "<change-id>" \
+  --findings "openspec/changes/<change-id>/review-findings-plan.json" \
+             "openspec/changes/<change-id>/reviews/findings-"*"-plan.json" \
+  --output "openspec/changes/<change-id>/reviews/consensus-plan.json"
+```
+
+**Present consensus summary** to the user:
+- Confirmed findings (2+ vendors agree) — high confidence, may block
+- Unconfirmed findings (single vendor) — lower confidence, warnings
+- Disagreements (vendors disagree on disposition) — escalate to human
+
+If no other vendors are available (CLIs not installed), skip this step and proceed with single-vendor findings only.
+
 ## Output
 
-- `openspec/changes/<change-id>/review-findings-plan.json` conforming to `review-findings.schema.json`
+- `openspec/changes/<change-id>/review-findings-plan.json` — your findings
+- `openspec/changes/<change-id>/reviews/findings-<vendor>-plan.json` — per-vendor findings
+- `openspec/changes/<change-id>/reviews/consensus-plan.json` — synthesized consensus
+- `openspec/changes/<change-id>/reviews/review-manifest.json` — dispatch metadata
 
 ## Design for Vendor Diversity
 
@@ -153,16 +195,4 @@ This skill is intentionally simple and self-contained so it can be dispatched to
 - Output is a single JSON file with a well-defined schema
 - No side effects (no git commits, no lock acquisition)
 
-The orchestrator may dispatch this skill to a different vendor (e.g., GPT-4, Gemini) for independent review diversity.
-
-## Multi-Vendor Dispatch
-
-When used via the `ReviewOrchestrator` (from `review_dispatcher.py`), this skill is dispatched to multiple vendor CLIs simultaneously:
-
-1. **Dispatch**: `ReviewOrchestrator.dispatch_and_wait()` invokes each vendor's CLI with the review prompt
-2. **Vendor config**: CLI flags per vendor are read from `agents.yaml` `cli.dispatch_modes.review` section
-3. **Model fallback**: On 429/capacity errors, the adapter retries with `cli.model_fallbacks`
-4. **Output**: Per-vendor findings written to `reviews/findings-<vendor>-plan.json`
-5. **Consensus**: `ConsensusSynthesizer` matches findings across vendors and produces `reviews/consensus-plan.json`
-
-The skill itself does not need to know about multi-vendor dispatch — it just reads artifacts and produces findings JSON. The orchestrator handles dispatch, collection, and synthesis.
+When this skill is dispatched *to* another vendor by the orchestrator, only Steps 1-5 run (the vendor produces findings). Step 6 (multi-vendor dispatch) only runs when this skill is the *primary* reviewer — i.e., when invoked directly by the user or the orchestrating agent.

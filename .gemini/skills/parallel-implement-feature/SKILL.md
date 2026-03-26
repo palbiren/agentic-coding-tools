@@ -167,18 +167,41 @@ C2. Escalation processing
     - Execute escalation protocol for any escalations
 
 C3. Per-package multi-vendor review
-    - Use ReviewOrchestrator (from review_dispatcher.py) to dispatch
-      /parallel-review-implementation to multiple vendor CLIs
-    - Vendor adapters read CLI config from agents.yaml `cli` section
-    - Model fallback: on 429/capacity errors, retry with cli.model_fallbacks
-    - Auth errors: surface re-login command to user, skip vendor
-    - Collect per-vendor findings, then synthesize consensus via
-      ConsensusSynthesizer (from consensus_synthesizer.py)
-    - Write review-manifest.json with dispatch metadata
-    - Single-vendor fallback: if only one vendor available, use raw findings
+    For each completed implementation package:
+
+    C3a. Run self-review (current agent reviews the package diff)
+         - Execute /parallel-review-implementation steps 1-8
+         - Write findings to artifacts/<package-id>/review-findings.json
+
+    C3b. Write review prompt for vendor dispatch
+         - Generate a review prompt that instructs vendors to read
+           the package diff and produce review-findings JSON
+         - Write to artifacts/<package-id>/review-prompt.md
+
+    C3c. Dispatch to other vendors
+         python3 "<skill-base-dir>/scripts/review_dispatcher.py" \
+           --review-type implementation \
+           --mode review \
+           --prompt-file "artifacts/<package-id>/review-prompt.md" \
+           --cwd "$(pwd)" \
+           --output-dir "artifacts/<package-id>/reviews" \
+           --exclude-vendor claude_code \
+           --timeout 600
+
+    C3d. Synthesize consensus from all findings
+         python3 "<skill-base-dir>/scripts/consensus_synthesizer.py" \
+           --review-type implementation \
+           --target "<package-id>" \
+           --findings "artifacts/<package-id>/review-findings.json" \
+                      "artifacts/<package-id>/reviews/findings-"*".json" \
+           --output "artifacts/<package-id>/reviews/consensus.json"
+
+    C3e. Record consensus in orchestrator
+         - Call integration_orchestrator.record_consensus(package_id, consensus)
+         - If no other vendors available, record single-vendor findings only
 
 C4. Integration gate (consensus-aware)
-    - Wait for all packages COMPLETED and reviewed
+    - Wait for all packages COMPLETED and reviewed (C3 complete for each)
     - When consensus exists: confirmed fix → BLOCKED_FIX,
       disagreement → BLOCKED_ESCALATE, unconfirmed → warnings (pass)
     - When no consensus: fall back to single-vendor finding dispositions

@@ -300,3 +300,153 @@ class TestOrchestrator:
         assert data["quorum_received"] == 1
         assert data["dispatches"][0]["success"] is True
         assert data["dispatches"][1]["error_class"] == "capacity_exhausted"
+
+
+# ---------------------------------------------------------------------------
+# Async dispatch + polling tests
+# ---------------------------------------------------------------------------
+
+def _async_adapter(**kwargs: object) -> CliVendorAdapter:
+    """Create adapter with async mode configured."""
+    from review_dispatcher import PollConfig
+    return CliVendorAdapter(
+        agent_id="codex-remote",
+        vendor="codex",
+        cli_config=CliConfig(
+            command="codex",
+            dispatch_modes={
+                "review": ModeConfig(args=["exec", "-s", "read-only"]),
+                "alternative": ModeConfig(
+                    args=["cloud", "exec", "--env", "test-env"],
+                    async_dispatch=True,
+                    poll=PollConfig(
+                        command_template=["codex", "cloud", "status", "{task_id}"],
+                        task_id_pattern=r"task[_\s:]+(\w+)",
+                        success_pattern="completed",
+                        failure_pattern="failed|error",
+                        interval_seconds=1,
+                        timeout_seconds=5,
+                    ),
+                ),
+            },
+            model_flag="-m",
+        ),
+    )
+
+
+class TestAsyncDispatch:
+    @patch("review_dispatcher.subprocess.run")
+    def test_async_submit_extracts_task_id(
+        self, mock_run: MagicMock, tmp_path: Path,
+    ) -> None:
+        """Async dispatch extracts task_id from output."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout="Submitted! task: abc123\n", stderr="",
+        )
+        adapter = _async_adapter()
+        result = adapter.dispatch_async("alternative", "prompt", cwd=tmp_path)
+        assert result.success is True
+        assert result.task_id == "abc123"
+        assert result.async_dispatch is True
+
+    @patch("review_dispatcher.subprocess.run")
+    def test_async_submit_no_task_id(
+        self, mock_run: MagicMock, tmp_path: Path,
+    ) -> None:
+        """Async dispatch fails if task_id cannot be extracted."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout="Something happened but no ID\n", stderr="",
+        )
+        adapter = _async_adapter()
+        result = adapter.dispatch_async("alternative", "prompt", cwd=tmp_path)
+        assert result.success is False
+        assert "Could not extract task ID" in (result.error or "")
+
+    @patch("review_dispatcher.subprocess.run")
+    def test_async_not_configured(
+        self, mock_run: MagicMock, tmp_path: Path,
+    ) -> None:
+        """Async dispatch on sync mode returns error."""
+        adapter = _async_adapter()
+        result = adapter.dispatch_async("review", "prompt", cwd=tmp_path)
+        assert result.success is False
+        assert "not configured for async" in (result.error or "")
+
+    @patch("review_dispatcher.subprocess.run")
+    @patch("review_dispatcher.time.sleep")
+    def test_poll_success(
+        self, mock_sleep: MagicMock, mock_run: MagicMock,
+    ) -> None:
+        """Polling detects completion and parses findings."""
+        from review_dispatcher import PollConfig
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout=f"Status: completed\n{VALID_FINDINGS_JSON}",
+            stderr="",
+        )
+        adapter = _async_adapter()
+        poll_cfg = PollConfig(
+            command_template=["codex", "cloud", "status", "{task_id}"],
+            task_id_pattern=r"task[_\s:]+(\w+)",
+            success_pattern="completed",
+            interval_seconds=1,
+            timeout_seconds=10,
+        )
+        result = adapter.poll_for_result("abc123", poll_cfg)
+        assert result.success is True
+        assert result.findings is not None
+        assert result.task_id == "abc123"
+
+    @patch("review_dispatcher.subprocess.run")
+    @patch("review_dispatcher.time.sleep")
+    def test_poll_failure(
+        self, mock_sleep: MagicMock, mock_run: MagicMock,
+    ) -> None:
+        """Polling detects failure."""
+        from review_dispatcher import PollConfig
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1,
+            stdout="Status: failed\nError: something broke",
+            stderr="",
+        )
+        adapter = _async_adapter()
+        poll_cfg = PollConfig(
+            command_template=["codex", "cloud", "status", "{task_id}"],
+            task_id_pattern=r"task[_\s:]+(\w+)",
+            success_pattern="completed",
+            failure_pattern="failed",
+            interval_seconds=1,
+            timeout_seconds=10,
+        )
+        result = adapter.poll_for_result("abc123", poll_cfg)
+        assert result.success is False
+        assert "failed" in (result.error or "").lower()
+
+    @patch("review_dispatcher.subprocess.run")
+    @patch("review_dispatcher.time.sleep")
+    @patch("review_dispatcher.time.monotonic")
+    def test_poll_timeout(
+        self, mock_time: MagicMock, mock_sleep: MagicMock,
+        mock_run: MagicMock,
+    ) -> None:
+        """Polling times out when task doesn't complete."""
+        from review_dispatcher import PollConfig
+        # Simulate time passing beyond timeout
+        mock_time.side_effect = [0, 0, 1, 3, 6, 100]
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0,
+            stdout="Status: running", stderr="",
+        )
+        adapter = _async_adapter()
+        poll_cfg = PollConfig(
+            command_template=["codex", "cloud", "status", "{task_id}"],
+            task_id_pattern=r"task[_\s:]+(\w+)",
+            success_pattern="completed",
+            interval_seconds=1,
+            timeout_seconds=5,
+        )
+        result = adapter.poll_for_result("abc123", poll_cfg)
+        assert result.success is False
+        assert "timed out" in (result.error or "").lower()

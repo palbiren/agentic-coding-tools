@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -73,10 +74,24 @@ def classify_error(stderr: str) -> ErrorClass:
 # ---------------------------------------------------------------------------
 
 @dataclass
+class PollConfig:
+    """Polling configuration for async dispatch modes."""
+
+    command_template: list[str]
+    task_id_pattern: str
+    success_pattern: str
+    failure_pattern: str = "failed|error"
+    interval_seconds: int = 30
+    timeout_seconds: int = 600
+
+
+@dataclass
 class ModeConfig:
     """CLI args for a single dispatch mode."""
 
     args: list[str]
+    async_dispatch: bool = False
+    poll: PollConfig | None = None
 
 
 @dataclass
@@ -113,6 +128,8 @@ class ReviewResult:
     elapsed_seconds: float = 0.0
     error: str | None = None
     error_class: ErrorClass | None = None
+    async_dispatch: bool = False
+    task_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -288,6 +305,151 @@ class CliVendorAdapter:
 
         return None
 
+    def dispatch_async(
+        self,
+        mode: str,
+        prompt: str,
+        cwd: Path,
+    ) -> ReviewResult:
+        """Submit an async dispatch and return immediately with task_id.
+
+        The caller must subsequently call ``poll_for_result()`` to wait
+        for completion.
+        """
+        mode_config = self.cli_config.dispatch_modes[mode]
+        if not mode_config.async_dispatch or not mode_config.poll:
+            return ReviewResult(
+                vendor=self.vendor, success=False,
+                error="Mode is not configured for async dispatch",
+            )
+
+        cmd = self.build_command(mode, prompt)
+        stdin_text = prompt if self.cli_config.prompt_via_stdin else None
+        start = time.monotonic()
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input=stdin_text,
+                capture_output=True,
+                text=True,
+                timeout=120,  # submit timeout (not execution timeout)
+                cwd=str(cwd),
+            )
+        except subprocess.TimeoutExpired:
+            return ReviewResult(
+                vendor=self.vendor, success=False,
+                error="Timeout submitting async task",
+                error_class=ErrorClass.TRANSIENT,
+            )
+
+        combined = result.stdout + "\n" + result.stderr
+        elapsed = time.monotonic() - start
+
+        # Extract task ID from output
+        match = re.search(mode_config.poll.task_id_pattern, combined)
+        if not match:
+            return ReviewResult(
+                vendor=self.vendor, success=False,
+                elapsed_seconds=elapsed,
+                error=f"Could not extract task ID from output: {combined[:300]}",
+                error_class=ErrorClass.UNKNOWN,
+            )
+
+        task_id = match.group(1)
+        logger.info(
+            "Async task submitted for %s: task_id=%s", self.vendor, task_id,
+        )
+
+        return ReviewResult(
+            vendor=self.vendor,
+            success=True,  # submission succeeded
+            elapsed_seconds=elapsed,
+            async_dispatch=True,
+            task_id=task_id,
+        )
+
+    def poll_for_result(
+        self,
+        task_id: str,
+        poll_config: PollConfig,
+    ) -> ReviewResult:
+        """Poll an async task until completion or timeout.
+
+        Args:
+            task_id: Task identifier extracted from async dispatch output.
+            poll_config: Polling configuration from the mode config.
+
+        Returns:
+            ReviewResult with findings if successful, error otherwise.
+        """
+        poll_cmd = [
+            arg.replace("{task_id}", task_id)
+            for arg in poll_config.command_template
+        ]
+
+        success_re = re.compile(poll_config.success_pattern, re.IGNORECASE)
+        failure_re = re.compile(poll_config.failure_pattern, re.IGNORECASE)
+
+        start = time.monotonic()
+        deadline = start + poll_config.timeout_seconds
+        attempts = 0
+
+        while time.monotonic() < deadline:
+            attempts += 1
+            logger.info(
+                "Polling %s task %s (attempt %d)", self.vendor, task_id, attempts,
+            )
+
+            try:
+                result = subprocess.run(
+                    poll_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                logger.warning("Poll command timed out, retrying")
+                time.sleep(poll_config.interval_seconds)
+                continue
+
+            combined = result.stdout + "\n" + result.stderr
+
+            if failure_re.search(combined):
+                return ReviewResult(
+                    vendor=self.vendor,
+                    success=False,
+                    elapsed_seconds=time.monotonic() - start,
+                    error=f"Async task failed: {combined[:300]}",
+                    error_class=ErrorClass.UNKNOWN,
+                    task_id=task_id,
+                )
+
+            if success_re.search(combined):
+                # Task completed — try to extract findings from output
+                findings = self._parse_findings(result.stdout)
+                return ReviewResult(
+                    vendor=self.vendor,
+                    success=findings is not None,
+                    findings=findings,
+                    elapsed_seconds=time.monotonic() - start,
+                    error=None if findings else "Task completed but no findings JSON in output",
+                    task_id=task_id,
+                )
+
+            # Still running — wait and retry
+            time.sleep(poll_config.interval_seconds)
+
+        # Timeout
+        return ReviewResult(
+            vendor=self.vendor,
+            success=False,
+            elapsed_seconds=time.monotonic() - start,
+            error=f"Polling timed out after {poll_config.timeout_seconds}s ({attempts} attempts)",
+            error_class=ErrorClass.TRANSIENT,
+            task_id=task_id,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Review orchestrator
@@ -316,7 +478,18 @@ class ReviewOrchestrator:
                     cli_config=CliConfig(
                         command=entry.cli.command,
                         dispatch_modes={
-                            name: ModeConfig(args=mc.args)
+                            name: ModeConfig(
+                                args=mc.args,
+                                async_dispatch=mc.async_dispatch,
+                                poll=PollConfig(
+                                    command_template=mc.poll.command_template,
+                                    task_id_pattern=mc.poll.task_id_pattern,
+                                    success_pattern=mc.poll.success_pattern,
+                                    failure_pattern=mc.poll.failure_pattern,
+                                    interval_seconds=mc.poll.interval_seconds,
+                                    timeout_seconds=mc.poll.timeout_seconds,
+                                ) if mc.poll else None,
+                            )
                             for name, mc in entry.cli.dispatch_modes.items()
                         },
                         model_flag=entry.cli.model_flag,
@@ -371,14 +544,36 @@ class ReviewOrchestrator:
                 )
                 continue
 
-            logger.info("Dispatching %s review to %s", review_type, reviewer.agent_id)
-            result = adapter.dispatch(
-                mode=dispatch_mode,
-                prompt=prompt,
-                cwd=cwd,
-                timeout_seconds=timeout_seconds,
-            )
-            results.append(result)
+            mode_config = adapter.cli_config.dispatch_modes[dispatch_mode]
+
+            if mode_config.async_dispatch:
+                logger.info(
+                    "Async dispatching %s review to %s",
+                    review_type, reviewer.agent_id,
+                )
+                submit_result = adapter.dispatch_async(
+                    mode=dispatch_mode, prompt=prompt, cwd=cwd,
+                )
+                if submit_result.success and submit_result.task_id and mode_config.poll:
+                    # Poll for completion
+                    poll_result = adapter.poll_for_result(
+                        submit_result.task_id, mode_config.poll,
+                    )
+                    results.append(poll_result)
+                else:
+                    results.append(submit_result)
+            else:
+                logger.info(
+                    "Sync dispatching %s review to %s",
+                    review_type, reviewer.agent_id,
+                )
+                result = adapter.dispatch(
+                    mode=dispatch_mode,
+                    prompt=prompt,
+                    cwd=cwd,
+                    timeout_seconds=timeout_seconds,
+                )
+                results.append(result)
 
         return results
 

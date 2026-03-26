@@ -80,6 +80,27 @@ AGENTS_SCHEMA: dict[str, Any] = {
                                             "items": {"type": "string"},
                                             "minItems": 1,
                                         },
+                                        "async": {"type": "boolean"},
+                                        "poll": {
+                                            "type": "object",
+                                            "required": [
+                                                "command_template",
+                                                "task_id_pattern",
+                                                "success_pattern",
+                                            ],
+                                            "properties": {
+                                                "command_template": {
+                                                    "type": "array",
+                                                    "items": {"type": "string"},
+                                                },
+                                                "task_id_pattern": {"type": "string"},
+                                                "success_pattern": {"type": "string"},
+                                                "failure_pattern": {"type": "string"},
+                                                "interval_seconds": {"type": "integer"},
+                                                "timeout_seconds": {"type": "integer"},
+                                            },
+                                            "additionalProperties": False,
+                                        },
                                     },
                                     "additionalProperties": False,
                                 },
@@ -108,10 +129,30 @@ AGENTS_SCHEMA: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 
 @dataclass
+class PollConfig:
+    """Polling configuration for async dispatch modes.
+
+    The dispatcher extracts a task ID from the dispatch command's output
+    using ``task_id_pattern``, substitutes it into ``command_template``,
+    and polls until ``success_pattern`` or ``failure_pattern`` matches
+    or ``timeout_seconds`` is reached.
+    """
+
+    command_template: list[str]
+    task_id_pattern: str
+    success_pattern: str
+    failure_pattern: str = "failed|error"
+    interval_seconds: int = 30
+    timeout_seconds: int = 600
+
+
+@dataclass
 class ModeConfig:
     """CLI args for a single dispatch mode."""
 
     args: list[str]
+    async_dispatch: bool = False
+    poll: PollConfig | None = None
 
 
 @dataclass
@@ -211,10 +252,34 @@ def load_agents_config(
         cli_config: CliConfig | None = None
         raw_cli = agent_data.get("cli")
         if raw_cli:
+            def _parse_mode(mode_data: dict[str, Any]) -> ModeConfig:
+                poll_config: PollConfig | None = None
+                raw_poll = mode_data.get("poll")
+                if raw_poll:
+                    poll_config = PollConfig(
+                        command_template=raw_poll["command_template"],
+                        task_id_pattern=raw_poll["task_id_pattern"],
+                        success_pattern=raw_poll["success_pattern"],
+                        failure_pattern=raw_poll.get(
+                            "failure_pattern", "failed|error",
+                        ),
+                        interval_seconds=raw_poll.get(
+                            "interval_seconds", 30,
+                        ),
+                        timeout_seconds=raw_poll.get(
+                            "timeout_seconds", 600,
+                        ),
+                    )
+                return ModeConfig(
+                    args=mode_data["args"],
+                    async_dispatch=mode_data.get("async", False),
+                    poll=poll_config,
+                )
+
             cli_config = CliConfig(
                 command=raw_cli["command"],
                 dispatch_modes={
-                    mode_name: ModeConfig(args=mode_data["args"])
+                    mode_name: _parse_mode(mode_data)
                     for mode_name, mode_data in raw_cli["dispatch_modes"].items()
                 },
                 model_flag=raw_cli["model_flag"],

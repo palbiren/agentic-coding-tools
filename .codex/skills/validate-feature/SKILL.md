@@ -1,8 +1,8 @@
 ---
-name: linear-validate-feature
+name: validate-feature
 description: Deploy locally, run security scans and behavioral tests, check CI/CD, and verify OpenSpec spec compliance
 category: Git Workflow
-tags: [openspec, validation, deployment, e2e, playwright, linear]
+tags: [openspec, validation, deployment, e2e, playwright, evidence]
 triggers:
   - "validate feature"
   - "validate deployment"
@@ -10,6 +10,9 @@ triggers:
   - "verify feature"
   - "run validation"
   - "linear validate feature"
+  - "parallel validate feature"
+  - "parallel validate"
+  - "validate parallel feature"
 ---
 
 # Validate Feature
@@ -391,6 +394,33 @@ Spec Compliance Results (from change-context.md):
   ✗ skill-workflow.3: TDD enforcement — test written after implementation
   ✓ skill-workflow.4: Validation report references change-context.md
 ```
+
+### 7.5. Work Package Evidence Completeness [local-parallel+]
+
+**Phase name:** `evidence`
+**Criticality:** Non-critical (continues on failure)
+
+This phase runs only when `work-packages.yaml` exists at `openspec/changes/<change-id>/`. It audits that all work packages produced valid results and contract compliance evidence is present.
+
+For each work package, validate its result (if `artifacts/<package-id>/work-queue-result.json` exists):
+
+```bash
+skills/.venv/bin/python "<skill-base-dir>/../validate-packages/scripts/validate_work_result.py" \
+  artifacts/<package-id>/result.json
+```
+
+Checks per package:
+- Result JSON validates against `work-queue-result.schema.json`
+- `contracts_revision` and `plan_revision` match work-packages.yaml
+- `scope_check.passed` is true
+- `verification.passed` is true
+- No unresolved escalations with disposition fix or escalate
+
+Cross-package consistency:
+- No two packages report modifications to the same file
+- All packages used the same contracts_revision and plan_revision
+
+If change-context.md exists, populate the Evidence column from work-queue results.
 
 ### 8. Log Analysis Phase
 

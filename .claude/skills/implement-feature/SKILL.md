@@ -1,8 +1,8 @@
 ---
-name: linear-implement-feature
-description: Implement approved OpenSpec proposal through to PR creation
+name: implement-feature
+description: "Implement approved OpenSpec proposal with tiered execution (coordinated / local-parallel / sequential)"
 category: Git Workflow
-tags: [openspec, implementation, pr, linear]
+tags: [openspec, implementation, pr, parallel, dag, work-packages]
 triggers:
   - "implement feature"
   - "build feature"
@@ -10,11 +10,14 @@ triggers:
   - "begin implementation"
   - "code feature"
   - "linear implement feature"
+  - "parallel implement feature"
+  - "parallel implement"
+  - "parallel build feature"
 ---
 
 # Implement Feature
 
-Implement an approved OpenSpec proposal. Ends when PR is created and awaiting review.
+Implement an approved OpenSpec proposal. Automatically selects execution tier based on coordinator availability and existing artifacts. Ends when PR is created and awaiting review.
 
 ## Arguments
 
@@ -33,306 +36,307 @@ Use OpenSpec-generated runtime assets first, then CLI fallback:
 - Gemini: `.gemini/commands/opsx/*.toml` or `.gemini/skills/openspec-*/SKILL.md`
 - Fallback: direct `openspec` CLI commands
 
-## Coordinator Integration (Optional)
-
-Use `docs/coordination-detection-template.md` as the shared detection preamble.
-
-- Detect transport and capability flags at skill start
-- Execute hooks only when the matching `CAN_*` flag is `true`
-- If coordinator is unavailable, continue with standalone behavior
-
 ## Steps
 
-### 0. Detect Coordinator and Read Handoff
+### 0. Detect Coordinator and Select Tier [all tiers]
 
-At skill start, run the coordination detection preamble and set:
-
-- `COORDINATOR_AVAILABLE`
-- `COORDINATION_TRANSPORT` (`mcp|http|none`)
-- `CAN_LOCK`, `CAN_QUEUE_WORK`, `CAN_HANDOFF`, `CAN_MEMORY`, `CAN_GUARDRAILS`
-
-If `CAN_HANDOFF=true`, read recent handoff context before implementation:
-
-- MCP path: `read_handoff`
-- HTTP path: `"<skill-base-dir>/../coordination-bridge/scripts/coordination_bridge.py"` `try_handoff_read(...)`
-
-On handoff failure/unavailability, continue with standalone implementation and log informationally.
-
-### 1. Verify Proposal Exists
+Run the coordinator detection script:
 
 ```bash
-# Verify the proposal
-openspec show <change-id>
+python3 "<skill-base-dir>/../coordination-bridge/scripts/check_coordinator.py" --json
+```
 
-# Check tasks
+Parse JSON output and set capability flags. Then select tier:
+
+```
+If COORDINATOR_AVAILABLE and CAN_DISCOVER and CAN_QUEUE_WORK and CAN_LOCK:
+  TIER = "coordinated"
+Else if work-packages.yaml exists at openspec/changes/<change-id>/:
+  TIER = "local-parallel"
+Else if tasks.md has 3+ independent tasks with non-overlapping file scopes:
+  TIER = "local-parallel"
+Else:
+  TIER = "sequential"
+```
+
+Emit tier notification:
+```
+Tier: <tier> -- <rationale>
+```
+
+If `CAN_HANDOFF=true`, read recent handoff context.
+
+### 1. Verify Proposal Exists [all tiers]
+
+```bash
+openspec show <change-id>
 cat openspec/changes/<change-id>/tasks.md
 ```
 
 Confirm the proposal is approved before proceeding.
 
-### 2. Setup Worktree for Feature Isolation
-
-Create an isolated worktree for this feature to avoid conflicts with other CLI sessions:
+### 2. Setup Worktree for Feature Isolation [all tiers]
 
 ```bash
-# Pass --agent-id if AGENT_ID env var is set
 AGENT_FLAG=""
 if [[ -n "${AGENT_ID:-}" ]]; then
   AGENT_FLAG="--agent-id ${AGENT_ID}"
 fi
 
-# Setup worktree for feature isolation (creates .git-worktrees/<change-id>/)
 eval "$(python3 "<skill-base-dir>/../worktree/scripts/worktree.py" setup "<change-id>" ${AGENT_FLAG})"
 cd "$WORKTREE_PATH"
-echo "Working directory: $(pwd)"
 ```
 
-After this step, you are working in an isolated directory at `.git-worktrees/<change-id>/`. Other terminal sessions can work on different features without conflict.
-
-### 3. Verify Feature Branch
+### 3. Verify Feature Branch [all tiers]
 
 ```bash
-# Should already be on feature branch from worktree setup
 git branch --show-current  # Should show openspec/<change-id>
-
-# If not (e.g., resumed session), checkout the branch
-git checkout openspec/<change-id>
 ```
 
-### 3a. Generate Change Context & Test Plan (Phase 1 — TDD RED)
+### 3a. Generate Change Context & Test Plan (Phase 1 -- TDD RED) [all tiers]
 
-Before implementing any tasks, create the traceability skeleton and write failing tests:
+Before implementing, create the traceability skeleton and write failing tests:
 
-1. **Read spec delta files** from `openspec/changes/<change-id>/specs/`. For each SHALL/MUST clause, create a row in the Requirement Traceability Matrix:
-   - **Req ID**: `<capability>.<N>` — sequential number per capability
-   - **Spec Source**: relative path (e.g., `specs/session-continuity/spec.md`)
-   - **Description**: one-line summary of the requirement
-   - **Test(s)**: planned test function name derived from the spec scenario (e.g., `test_worktree_isolation` from scenario "Worktree provides isolation")
-   - **Files Changed**: `---` (not yet implemented)
-   - **Evidence**: `---` (not yet validated)
+1. Read spec delta files from `openspec/changes/<change-id>/specs/`. For each SHALL/MUST clause, create a row in the Requirement Traceability Matrix.
+2. If `design.md` exists, populate Design Decision Trace.
+3. Write failing tests (RED) for each row in the matrix.
 
-2. **Design Decision Trace**: If `design.md` exists, populate with each decision. Rationale column filled from design.md, Implementation column = `---`.
+Use template from `openspec/schemas/feature-workflow/templates/change-context.md`. Write to `openspec/changes/<change-id>/change-context.md`.
 
-3. **Review Findings Summary**: Omit for linear workflow.
+### 3b. Implement Tasks (Phase 2 -- TDD GREEN)
 
-4. **Coverage Summary**: Set preliminary counts — requirements traced = N, tests mapped = N, evidence = 0/N.
+Implementation strategy depends on the selected tier:
 
-5. **Write failing tests (RED)**: For each row in the matrix, create the test function listed in the Test(s) column. Tests should encode the spec scenario's WHEN/THEN/AND clauses as assertions. Tests MUST fail at this point (no implementation yet).
-   - For scenarios requiring live services, use `@pytest.mark.integration` or `@pytest.mark.e2e` markers as test stubs.
-   - Tests that reference implementation types/interfaces may fail to import — this is expected in the RED phase and validates that tests precede code.
+---
 
-Use template from `openspec/schemas/feature-workflow/templates/change-context.md`. Write the file to `openspec/changes/<change-id>/change-context.md`.
+#### Sequential Tier [sequential]
 
-### 3b. Implement Tasks (Phase 2 — TDD GREEN)
-
-Tests from step 3a define expected behavior. Implement code to make them pass.
-
-Preferred path:
-- Use the runtime-native apply workflow (`opsx:apply` equivalent for the active agent) to execute tasks.
-
-CLI fallback path:
+Work through tasks sequentially from `tasks.md`. Use the runtime-native apply workflow or CLI fallback:
 
 ```bash
 openspec instructions apply --change "<change-id>" --json
 openspec status --change "<change-id>"
 ```
 
-Execution expectations:
-- Read proposal/spec/design/tasks context from apply instructions
-- Work through tasks sequentially unless safely parallelizable
-- Keep edits minimal and focused
-- Mark completed tasks in `tasks.md` (`- [ ]` -> `- [x]`)
+##### Parallel Implementation (for independent tasks)
 
-After task completion, **update `change-context.md`**:
-- Fill the **Files Changed** column with actual source files modified per requirement (from `git diff --name-only main..HEAD` cross-referenced with task file scopes)
-- Update **Design Decision Trace** Implementation column if design.md exists
-- Update **Coverage Summary** counts
-
-Capability-gated coordinator hooks:
-
-- **Guardrails (`CAN_GUARDRAILS=true`)**: before running high-risk operations, run a guardrail pre-check and report violations informationally (phase 1 does not hard-block)
-- **File locking (`CAN_LOCK=true`)**: acquire locks before editing files and keep a local list of acquired locks for cleanup
-- **Work queue (`CAN_QUEUE_WORK=true`)**: for independent tasks, optionally submit/claim/complete via coordinator queue APIs; if unavailable or unclaimed, fall back to local `Task()` execution
-
-**Heartbeat:** During long-running implementation, periodically call `python3 "<skill-base-dir>/../worktree/scripts/worktree.py" heartbeat "<change-id>" ${AGENT_FLAG}` to signal liveness to the worktree registry. This prevents stale-agent garbage collection from reclaiming the worktree.
-
-#### Parallel Implementation (for independent tasks)
-
-When tasks.md contains multiple **independent tasks** (no shared files), implement them concurrently:
+When tasks.md contains 3+ **independent tasks** (no shared files), implement concurrently:
 
 ```
-# Spawn parallel agents (single message, multiple Task calls)
 Task(
   subagent_type="general-purpose",
-  description="Implement task 1: <brief>",
-  prompt="You are implementing OpenSpec <change-id>, Task 1.
-
+  description="Implement task N: <brief>",
+  prompt="You are implementing OpenSpec <change-id>, Task N.
 ## Your Task
-<TASK_DESCRIPTION from tasks.md>
-
+<TASK_DESCRIPTION>
 ## File Scope (CRITICAL)
 You MAY modify: <list specific files>
 You must NOT modify any other files.
+## Context
+- Read openspec/changes/<change-id>/proposal.md
+- Read openspec/changes/<change-id>/design.md
+Do NOT commit - the orchestrator will handle commits.",
+  run_in_background=true
+)
+```
+
+**When to parallelize:** 3+ independent tasks with no file overlap.
+**When NOT to:** Tasks that share files/state or have logical dependencies.
+
+---
+
+#### Local Parallel Tier [local-parallel]
+
+Uses `work-packages.yaml` for structured DAG execution within a **single feature worktree**.
+
+**A. Parse and validate work-packages.yaml:**
+
+```bash
+skills/.venv/bin/python "<skill-base-dir>/../parallel-infrastructure/scripts/dag_scheduler.py" \
+  --validate openspec/changes/<change-id>/work-packages.yaml
+```
+
+Compute topological order from `packages[].depends_on`.
+
+**B. Execute root packages sequentially:**
+
+For each root package (depends_on == []), implement within the feature worktree.
+
+**C. Dispatch independent packages in parallel:**
+
+For each package whose dependencies are satisfied, dispatch via Agent tool:
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Implement <package-id>",
+  prompt="You are implementing work package <package-id> for OpenSpec <change-id>.
+
+## File Scope (CRITICAL)
+write_allow: <from work-packages.yaml>
+read_allow: <from work-packages.yaml>
+deny: <from work-packages.yaml>
 
 ## Context
-- Read openspec/changes/<change-id>/proposal.md for full context
-- Read openspec/changes/<change-id>/design.md for architectural decisions
+<context slice from Context Slicing table below>
 
-## Process
-1. Read the proposal and design docs
-2. Write failing tests first (TDD)
-3. Implement minimal code to pass tests
-4. Run tests to verify
-5. Report completion with summary of changes
+## Verification
+After implementation, run:
+<verification steps from work-packages.yaml>
 
 Do NOT commit - the orchestrator will handle commits.",
   run_in_background=true
 )
 ```
 
-**Rules for parallel implementation:**
-- Each agent's prompt MUST list specific files it may modify
-- Tasks with overlapping files MUST run sequentially
-- Collect all results via TaskOutput before committing
-- If an agent fails, use `Task(resume=<agent_id>)` to retry
-
-Locking behavior details (`CAN_LOCK=true`):
-
-- Acquire lock before editing each targeted file
-- If lock acquisition is blocked, report owner/expiry information and skip that file
-- Continue with unblocked files/tasks
-- On completion/failure, release all acquired locks (best effort; warn on release failure)
-
-**When to parallelize:**
-- 3+ independent tasks with no file overlap
-- Tasks targeting separate modules/packages
-- Independent test suites
-
-**When NOT to parallelize:**
-- Tasks that share files or state
-- Tasks with logical dependencies (B needs A's output)
-- Small proposals where sequential is simpler
-
-### 4. Track Progress
-
-Use TodoWrite to track implementation:
-- Create todos from tasks.md
-- Mark complete as you progress
-- Use `openspec show <change-id>` for context when needed
-
-### 5. Verify All Tasks Complete
+**D. Collect results and verify scope:**
 
 ```bash
-# Check all tasks are marked done
-grep -E "^\s*- \[ \]" openspec/changes/<change-id>/tasks.md
+skills/.venv/bin/python "<skill-base-dir>/../parallel-infrastructure/scripts/scope_checker.py" \
+  --packages openspec/changes/<change-id>/work-packages.yaml \
+  --diff <git diff output>
+```
 
+**E. Update change-context.md:**
+
+- Fill Files Changed column from `git diff --name-only main..HEAD`
+- Update Design Decision Trace if design.md exists
+- Update Coverage Summary counts
+
+---
+
+#### Coordinated Tier [coordinated]
+
+Full multi-agent DAG execution with coordinator integration. Each work package runs in its own worktree with explicit lock claims.
+
+##### Phase A: Feature-Level Preflight (Orchestrator)
+
+```
+A1. Parse and validate work-packages.yaml against schema
+A2. Validate contracts exist
+A3. Compute DAG order (topological sort, cycle detection)
+A3.5. Generate Change Context with relevant rows per package
+A4. Create or reuse feature branch
+A5. Implement root packages (sequentially, each in own worktree)
+A6. Setup worktrees for parallel packages (branch from feature branch)
+A7. Dispatch parallel agents with WORKTREE_PATH, BRANCH, CHANGE_ID, PACKAGE_ID
+A8. Begin monitoring loop (discover_agents, get_task polling)
+```
+
+##### Phase B: Package Execution Protocol (Every Worker Agent)
+
+Each worker agent follows steps B1-B11: session registration, pause-lock check, deadlock-safe lock acquisition (lexicographic order), code generation within scope, deterministic scope check via git diff, verification steps, structured result publication.
+
+Workers MUST call heartbeat every 30 minutes:
+```bash
+python3 "<skill-base-dir>/../worktree/scripts/worktree.py" heartbeat "${CHANGE_ID}" --agent-id "${PACKAGE_ID}"
+```
+
+##### Phase C: Review + Integration Sequencing
+
+```
+C1. Result validation against work-queue-result.schema.json
+C2. Escalation processing
+C3. Per-package multi-vendor review (via /parallel-review-implementation)
+    - Self-review + vendor dispatch via parallel-infrastructure/scripts/review_dispatcher.py
+    - Consensus synthesis via parallel-infrastructure/scripts/consensus_synthesizer.py
+C4. Integration gate (consensus-aware)
+C5. Integration merge (wp-integration package, merge_worktrees.py)
+C5.5. Finalize Change Context (Files Changed, Design Decision Trace, Review Findings Summary)
+C6. Execution summary generation
+```
+
+**Teardown** (after PR creation or on failure):
+```bash
+python3 "<skill-base-dir>/../worktree/scripts/worktree.py" unpin "<change-id>"
+for pkg in <package-ids> integrator; do
+    python3 "<skill-base-dir>/../worktree/scripts/worktree.py" teardown "<change-id>" --agent-id "$pkg"
+done
+python3 "<skill-base-dir>/../worktree/scripts/worktree.py" gc
+```
+
+---
+
+### 4. Track Progress [all tiers]
+
+Use TodoWrite to track implementation. Mark complete as you progress.
+
+### 5. Verify All Tasks Complete [all tiers]
+
+```bash
+grep -E "^\s*- \[ \]" openspec/changes/<change-id>/tasks.md
 # Should return nothing (all boxes checked)
 ```
 
-### 6. Quality Checks (Parallel Execution)
+### 6. Quality Checks (Parallel Execution) [all tiers]
 
-Run all quality checks concurrently using Task() with `run_in_background=true`:
+Run all environment-safe checks. These must pass in both cloud and local environments:
 
 ```
-# Launch all checks in parallel (single message, multiple Task calls)
-Task(subagent_type="Bash", prompt="Run pytest and report pass/fail with summary", run_in_background=true)
-Task(subagent_type="Bash", prompt="Run mypy src/ and report any type errors", run_in_background=true)
-Task(subagent_type="Bash", prompt="Run ruff check . and report any linting issues", run_in_background=true)
+Task(subagent_type="Bash", prompt="Run pytest and report pass/fail", run_in_background=true)
+Task(subagent_type="Bash", prompt="Run mypy src/ and report type errors", run_in_background=true)
+Task(subagent_type="Bash", prompt="Run ruff check . and report linting issues", run_in_background=true)
 Task(subagent_type="Bash", prompt="Run openspec validate <change-id> --strict", run_in_background=true)
-Task(subagent_type="Bash", prompt="Run 'python3 \"<skill-base-dir>/../validate-flows/scripts/validate_flows.py\" --diff main...HEAD' from the project root and report any architecture diagnostics (broken flows, missing tests, orphaned code). If the script is not available or docs/architecture-analysis/architecture.graph.json doesn't exist, report that architecture validation was skipped.", run_in_background=true)
+Task(subagent_type="Bash", prompt="Run validate_flows.py --diff main...HEAD", run_in_background=true)
 ```
 
-**Result Aggregation:**
-1. Wait for all TaskOutput results
-2. Collect pass/fail status from each check
-3. Report all results together (don't fail-fast on first error)
-4. If any check fails, show all failures before fixing
+Fix all failures before proceeding.
 
-**Example output format:**
+### 6.5. Artifact Validation [local-parallel+]
+
+**Skip if TIER is "sequential".**
+
+Delegate to `/validate-feature` for environment-safe validation phases:
+
 ```
-Quality Check Results:
-✓ pytest: 42 tests passed
-✗ mypy: 3 type errors in src/auth.py
-✓ ruff: No issues
-✓ openspec validate: Valid
-✓ architecture: No broken flows (2 warnings: orphaned functions)
+/validate-feature <change-id> --phase spec,evidence
 ```
 
-Fix all failures before proceeding. Address issues in order of severity (type errors before style).
+This runs the canonical validation skill targeting:
+- **Spec compliance** (`spec` phase): Audits `change-context.md` Requirement Traceability Matrix — verifies no `---` entries in Files Changed, updates Coverage Summary counts, and checks each requirement against the implementation.
+- **Evidence completeness** (`evidence` phase): Validates work-package results against `work-queue-result.schema.json`, checks revision consistency, scope compliance, and cross-package consistency. Populates the Evidence column in `change-context.md`.
 
-### 7. Document Lessons Learned
+These phases are environment-safe and run in both cloud and local. Docker-dependent phases (deploy, smoke, security, E2E) are deferred to the merge-time validation gate in `/cleanup-feature` or `/merge-pull-requests`.
 
-Document any lessons learned during implementation, such as repeatable patterns, gotchas in the code that are noteworthy, and any changes in design that came up during the implementation and test phases in documents in the CLAUDE.md and AGENTS.md files. 
+### 7. Document Lessons Learned [all tiers]
 
-If the CLAUDE.md and AGENTS.md files are getting beyond 300 lines each, then refactor the documentation into documents focused on certain aspects of the project or the development process in the docs/ folder such as DEVELOPMENT.md for development guidelines, SETUP.md for set up instructions, UX_DESIGN.md for front end design considerations, etc. and reference them in CLAUDE.md and AGENTS.md
+Document patterns, gotchas, and design changes in CLAUDE.md and AGENTS.md.
 
-### 8. Commit Changes
+### 8. Commit Changes [all tiers]
 
 ```bash
-# Review changes
-git status
-git diff
-
-# Stage all changes
 git add .
-
-# Commit with OpenSpec reference
 git commit -m "$(cat <<'EOF'
 feat(<scope>): <description>
 
 Implements OpenSpec: <change-id>
-
-- <key change 1>
-- <key change 2>
-- <key change 3>
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
 )"
 ```
 
-### 9. Push and Create PR
+### 9. Push and Create PR [all tiers]
 
 ```bash
-# Push branch
 git push -u origin openspec/<change-id>
-
-# Create PR
-gh pr create --title "feat(<scope>): <title from proposal>" --body "$(cat <<'EOF'
-## Summary
-
-Implements OpenSpec proposal: `<change-id>`
-
-**Proposal**: `openspec/changes/<change-id>/proposal.md`
-**Change Context**: `openspec/changes/<change-id>/change-context.md`
-
-### Changes
-- <bullet points summarizing changes>
-
-## Test Plan
-- [ ] All tests pass (`pytest`)
-- [ ] Type checks pass (`mypy src/`)
-- [ ] Linting passes (`ruff check .`)
-- [ ] OpenSpec validates (`openspec validate <change-id> --strict`)
-- [ ] All tasks complete in `tasks.md`
-
-## OpenSpec Tasks
-<paste tasks.md checklist>
-
----
-🤖 Generated with Claude Code
-EOF
-)"
+gh pr create --title "feat(<scope>): <title>" --body "..."
 ```
 
-If `CAN_HANDOFF=true`, write a completion handoff after PR creation containing:
+If `CAN_HANDOFF=true`, write a completion handoff.
 
-- Completed tasks and major design/implementation decisions
-- Any blocked/skipped work (for example lock contention outcomes)
-- Validation/test status
-- Recommended next command (`/iterate-on-implementation`, `/validate-feature`, or `/cleanup-feature`)
+**STOP HERE -- Wait for PR approval before proceeding to cleanup.**
 
-**STOP HERE - Wait for PR approval before proceeding to cleanup.**
+## Context Slicing for Implementation
+
+When dispatching work packages, each agent receives only the context it needs:
+
+| Package Type | Context Slice |
+|-------------|---------------|
+| `wp-contracts` | `proposal.md` + spec deltas + contract templates |
+| Backend packages | `design.md` (backend section) + `contracts/openapi/` + package scope |
+| Frontend packages | `design.md` (frontend section) + `contracts/generated/types.ts` + package scope |
+| `wp-integration` | Full `work-packages.yaml` + all contract artifacts |
 
 ## Output
 

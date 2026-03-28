@@ -1,8 +1,8 @@
 ---
-name: linear-iterate-on-implementation
+name: iterate-on-implementation
 description: Iteratively refine a feature implementation by identifying and fixing bugs, edge cases, and improvements
 category: Git Workflow
-tags: [openspec, refinement, iteration, quality, linear]
+tags: [openspec, refinement, iteration, quality]
 triggers:
   - "iterate on implementation"
   - "refine implementation"

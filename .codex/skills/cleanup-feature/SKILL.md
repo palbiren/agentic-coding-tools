@@ -1,8 +1,8 @@
 ---
-name: linear-cleanup-feature
+name: cleanup-feature
 description: Merge approved PR, migrate open tasks, archive OpenSpec proposal, and cleanup branches
 category: Git Workflow
-tags: [openspec, archive, cleanup, merge, linear]
+tags: [openspec, archive, cleanup, merge, merge-queue]
 triggers:
   - "cleanup feature"
   - "merge feature"
@@ -10,6 +10,9 @@ triggers:
   - "archive feature"
   - "close feature"
   - "linear cleanup feature"
+  - "parallel cleanup feature"
+  - "parallel merge feature"
+  - "parallel finish feature"
 ---
 
 # Cleanup Feature
@@ -90,6 +93,33 @@ gh pr view openspec/<change-id>
 
 Confirm PR is approved and CI is passing before proceeding.
 
+### 2.5. Pre-Merge Validation Gate
+
+Check whether Docker-dependent validation has been run. Cloud-created PRs pass environment-safe checks during implementation but may lack deployment-based validation.
+
+If `validation-report.md` exists at `openspec/changes/<change-id>/` with deploy/smoke/security/e2e phases completed, skip this step.
+
+Otherwise, if Docker is available (`docker info` succeeds), run the missing phases:
+
+```
+/validate-feature <change-id> --phase deploy,smoke,security,e2e
+```
+
+This delegates to the canonical validation skill for service lifecycle, smoke tests, security scanning, and E2E. The resulting `validation-report.md` is committed to the PR branch.
+
+If Docker is not available, warn the operator that deployment validation was skipped and let them decide whether to proceed.
+
+If any phase **fails**, present findings and let the operator decide: fix, re-validate, or proceed anyway.
+
+### 2.6. Merge Queue Integration [coordinated only]
+
+These steps run only when coordinator is available with `CAN_MERGE_QUEUE` and `CAN_FEATURE_REGISTRY` capabilities.
+
+**2.5a. Enqueue**: `enqueue_merge(feature_id="<change-id>", pr_url="<pr-url>")`
+**2.5b. Pre-merge checks**: `run_pre_merge_checks(feature_id="<change-id>")` -- verifies no new resource conflicts
+**2.5c. Check merge order**: `get_next_merge()` -- inform user if another feature has higher priority
+**2.5d. Cross-feature rebase**: If other features merged since branching, rebase on origin/main
+
 ### 3. Merge PR
 
 ```bash
@@ -99,6 +129,10 @@ gh pr merge openspec/<change-id> --squash --delete-branch
 # Or merge commit
 gh pr merge openspec/<change-id> --merge --delete-branch
 ```
+
+### 3.5. Mark Merged in Registry [coordinated only]
+
+If `CAN_MERGE_QUEUE=true`: `mark_merged(feature_id="<change-id>")` -- marks feature completed, frees resource claims, removes from merge queue.
 
 ### 4. Update Local Repository
 
@@ -171,6 +205,43 @@ Open tasks migrated to [beads issues labeled `openspec:<change-id>`] | [follow-u
 ```
 
 This annotation is preserved in the archive for traceability.
+
+### 5b. Generate Session Log
+
+Capture agent session context as a structured `session-log.md` artifact before archiving. This preserves decision rationale, trade-offs, and alternatives alongside the change.
+
+```bash
+# Step 1: Extract session context (3-tier: transcript → handoffs → self-summary)
+EXTRACT_EXIT=0
+python3 "<skill-base-dir>/../session-log/scripts/extract_session_log.py" \
+  --change-id "<change-id>" \
+  --agent-type claude \
+  --output "openspec/changes/<change-id>/session-log.raw.md" || EXTRACT_EXIT=$?
+
+if [ "$EXTRACT_EXIT" -eq 2 ]; then
+  # Tier 3: No transcript or handoffs found — agent should self-summarize
+  # The extraction script outputs a structured prompt; use it to generate the log
+  # (The agent reads the prompt and writes session-log.raw.md from its context window)
+fi
+
+# Step 2: Sanitize to remove secrets before committing
+if [ -f "openspec/changes/<change-id>/session-log.raw.md" ]; then
+  python3 "<skill-base-dir>/../session-log/scripts/sanitize_session_log.py" \
+    "openspec/changes/<change-id>/session-log.raw.md" \
+    "openspec/changes/<change-id>/session-log.md"
+
+  if [ $? -eq 0 ]; then
+    rm "openspec/changes/<change-id>/session-log.raw.md"
+    git add "openspec/changes/<change-id>/session-log.md"
+  else
+    echo "WARNING: Session log sanitization failed — skipping session log"
+    rm -f "openspec/changes/<change-id>/session-log.raw.md"
+    rm -f "openspec/changes/<change-id>/session-log.md"
+  fi
+fi
+```
+
+If extraction or sanitization fails at any point, log a warning and proceed to archiving without the session log. This step is non-blocking.
 
 ### 6. Archive OpenSpec Proposal
 
@@ -246,6 +317,10 @@ git status
 # Run tests on main
 pytest
 ```
+
+### 9.5. Notify Dependent Features [coordinated only]
+
+If `CAN_FEATURE_REGISTRY=true`, re-analyze conflicts for active features. Features that were PARTIAL or SEQUENTIAL may upgrade to FULL now that this features claims are freed.
 
 ### 10. Clear Session State
 

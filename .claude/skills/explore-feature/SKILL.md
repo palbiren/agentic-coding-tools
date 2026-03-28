@@ -1,14 +1,17 @@
 ---
-name: linear-explore-feature
+name: explore-feature
 description: Identify high-value next features using architecture artifacts, code signals, and active OpenSpec context
 category: Git Workflow
-tags: [openspec, discovery, architecture, prioritization, linear]
+tags: [openspec, discovery, architecture, prioritization, parallel]
 triggers:
   - "explore feature"
   - "what should we build next"
   - "identify next feature"
   - "feature discovery"
   - "linear explore feature"
+  - "parallel explore feature"
+  - "parallel explore"
+  - "explore parallel feature"
 ---
 
 # Explore Feature
@@ -98,6 +101,33 @@ Generate a ranked shortlist (3-7 items), each with:
 - Suggested OpenSpec change-id prefix (`add-`, `update-`, `refactor-`, `remove-`)
 - `blocked-by` dependencies (existing change-ids, missing infra, unresolved design decisions)
 - Recommended next action (`/plan-feature` now, or defer)
+
+### 3.5. Enumerate Active Resource Claims [coordinated only]
+
+**Coordinator-dependent step** (requires `CAN_DISCOVER` and `CAN_LOCK`). Skip if coordinator is unavailable.
+
+- Call `check_locks()` to get all active file and logical locks
+- Call `discover_agents()` to enumerate in-flight features and their claimed resources
+- Build a resource occupation map: which files, API endpoints, DB schemas, and events are currently claimed
+
+### 3.6. Assess Parallel Feasibility [coordinated only]
+
+For each candidate from Step 3, if resource claims were enumerated in Step 3.5:
+
+1. **Estimate scope**: Identify likely files, API endpoints, DB tables, and events the feature would touch
+2. **Check lock overlap**: Compare estimated scope against the resource occupation map
+3. **Classify feasibility**:
+   - `FULL` -- No resource overlap; safe for full parallel execution
+   - `PARTIAL` -- Some overlap; can run in parallel with serialized access to shared resources
+   - `SEQUENTIAL` -- Heavy overlap; must wait for in-flight features to complete
+
+Add these fields to the ranked output when available:
+
+| Field | Description |
+|-------|-------------|
+| Parallel Feasibility | `FULL` / `PARTIAL` / `SEQUENTIAL` (or `N/A` if coordinator unavailable) |
+| Resource Conflicts | List of overlapping locks (if any) |
+| Independent Zones | Which `parallel_zones.json` groups are available |
 
 ### 4. Recommend Next Execution Path
 

@@ -93,8 +93,8 @@ agents:
         alternative:
           args: ["exec", "-s", "workspace-write"]
       model_flag: "-m"
-      model: null
-      model_fallbacks: ["o3", "gpt-4.1"]
+      model: "gpt-5.4"
+      model_fallbacks: ["gpt-5.3-codex", "gpt-5.4-mini"]
 
   codex-remote:
     type: codex
@@ -132,8 +132,8 @@ agents:
             interval_seconds: 30
             timeout_seconds: 1800
       model_flag: "-m"
-      model: null
-      model_fallbacks: ["o3", "gpt-4.1"]
+      model: "gpt-5.4"
+      model_fallbacks: ["gpt-5.3-codex", "gpt-5.4-mini"]
 
   # ---------------------------------------------------------------------------
   # Gemini

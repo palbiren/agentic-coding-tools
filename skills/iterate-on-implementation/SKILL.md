@@ -17,7 +17,7 @@ Iteratively refine a feature implementation after `/implement-feature` completes
 
 ## Arguments
 
-`$ARGUMENTS` - OpenSpec change-id (required), optionally followed by `--max <N>` (default: 5) and `--threshold <level>` (default: "medium"; values: "critical", "high", "medium", "low")
+`$ARGUMENTS` - OpenSpec change-id (required), optionally followed by `--max <N>` (default: 5), `--threshold <level>` (default: "medium"; values: "critical", "high", "medium", "low"), and `--vendor-review` (dispatch multi-vendor review after iterate loop converges; automatic in coordinated tier)
 
 ## Prerequisites
 
@@ -87,6 +87,15 @@ fi
 Parse optional flags from `$ARGUMENTS`:
 - `--max <N>` overrides MAX_ITERATIONS
 - `--threshold <level>` overrides THRESHOLD
+- `--vendor-review` sets VENDOR_REVIEW=true
+
+```bash
+# Vendor review: explicit flag OR auto-enable in coordinated tier
+VENDOR_REVIEW=false
+if [[ "$ARGUMENTS" == *"--vendor-review"* ]] || [[ "$COORDINATOR_AVAILABLE" == "true" ]]; then
+  VENDOR_REVIEW=true
+fi
+```
 
 ### 2. Verify Implementation Exists
 
@@ -301,6 +310,97 @@ ITERATION=$((ITERATION + 1))
 
 ## After Loop
 
+### 11. Multi-Vendor Review (Conditional)
+
+**Skip this step** if `VENDOR_REVIEW=false`.
+
+After the iterate loop converges (all findings below threshold) or max iterations are reached, dispatch a multi-vendor review for a final independent validation pass.
+
+#### 11a. Dispatch Reviews
+
+For implementations with work packages (`work-packages.yaml` exists), dispatch per-package reviews via `/parallel-review-implementation`. For simpler implementations, dispatch a whole-branch review.
+
+**Per-package dispatch** (if work-packages.yaml exists):
+
+```bash
+# Dispatch per-package reviews to other vendors
+for PKG_ID in $(python3 -c "
+import yaml
+pkgs = yaml.safe_load(open('openspec/changes/$CHANGE_ID/work-packages.yaml'))
+for p in pkgs.get('packages', []): print(p['id'])
+"); do
+  python3 "<skill-base-dir>/../parallel-infrastructure/scripts/review_dispatcher.py" \
+    --review-type implementation \
+    --mode review \
+    --prompt-file "openspec/changes/$CHANGE_ID/reviews/review-prompt-$PKG_ID.md" \
+    --cwd "$(pwd)" \
+    --output-dir "openspec/changes/$CHANGE_ID/reviews" \
+    --exclude-vendor claude_code \
+    --timeout 600
+done
+```
+
+**Whole-branch dispatch** (no work packages):
+
+```bash
+# Create review prompt for the full implementation diff
+mkdir -p openspec/changes/$CHANGE_ID/reviews
+
+cat > openspec/changes/$CHANGE_ID/reviews/review-prompt.md <<'PROMPT'
+Review the implementation on this branch against the OpenSpec proposal.
+Run: git diff main..HEAD to see all changes.
+Read openspec/changes/$CHANGE_ID/proposal.md and spec deltas for requirements.
+Output ONLY valid JSON conforming to review-findings.schema.json.
+Focus on: correctness, security, contract compliance, test coverage, and performance.
+PROMPT
+
+python3 "<skill-base-dir>/../parallel-infrastructure/scripts/review_dispatcher.py" \
+  --review-type implementation \
+  --mode review \
+  --prompt-file "openspec/changes/$CHANGE_ID/reviews/review-prompt.md" \
+  --cwd "$(pwd)" \
+  --output-dir "openspec/changes/$CHANGE_ID/reviews" \
+  --exclude-vendor claude_code \
+  --timeout 600
+```
+
+Also produce your own findings as the primary reviewer: review the implementation diff against spec requirements and write findings to `openspec/changes/$CHANGE_ID/review-findings-impl.json`.
+
+#### 11b. Synthesize Consensus
+
+```bash
+python3 "<skill-base-dir>/../parallel-infrastructure/scripts/consensus_synthesizer.py" \
+  --review-type implementation \
+  --target "$CHANGE_ID" \
+  --findings "openspec/changes/$CHANGE_ID/review-findings-impl.json" \
+             "openspec/changes/$CHANGE_ID/reviews/findings-"*"-implementation.json" \
+  --output "openspec/changes/$CHANGE_ID/reviews/consensus-impl.json"
+```
+
+Present consensus summary:
+- **Confirmed findings** (2+ vendors agree) — high confidence
+- **Unconfirmed findings** (single vendor) — lower confidence, warnings
+- **Disagreements** (vendors disagree on disposition) — escalate to human
+
+If no other vendors are available (CLIs not installed), skip dispatch and proceed with single-vendor findings only.
+
+#### 11c. Feed Back Findings Above Remediation Threshold
+
+The remediation threshold is the user's `--threshold` setting if provided, otherwise medium.
+
+If the consensus or vendor review surfaces new findings **at or above the remediation threshold**:
+
+1. Append the new findings to `openspec/changes/$CHANGE_ID/impl-findings.md`
+2. Run **one additional iterate cycle** (Steps 4-10) to address them
+3. Commit with message: `refine(<scope>): vendor-review remediation - <summary>`
+4. Do NOT re-dispatch vendor review (prevents infinite recursion)
+
+If all vendor review findings are below the remediation threshold, proceed to the summary.
+
+---
+
+### 12. Present Summary
+
 Present a summary of all iterations:
 
 ```
@@ -332,6 +432,12 @@ If `CAN_HANDOFF=true`, write a completion handoff containing:
 - Total findings addressed: <count>
 - Remaining findings (below threshold): <list or "none">
 - Termination reason: <threshold met | max iterations reached>
+
+### Vendor Review (if dispatched)
+- Vendors dispatched: <list or "skipped">
+- Consensus findings: <confirmed count> confirmed, <unconfirmed count> unconfirmed, <disagreement count> disagreements
+- Remediation cycle: <ran / not needed>
+- New findings addressed in remediation: <count or "N/A">
 ```
 
 ## Output
@@ -341,6 +447,7 @@ If `CAN_HANDOFF=true`, write a completion handoff containing:
 - Updated documentation (CLAUDE.md, AGENTS.md, docs/ as applicable)
 - Updated OpenSpec documents (proposal.md, design.md, spec deltas as applicable)
 - Final state assessment
+- Vendor review consensus (if `--vendor-review` or coordinated tier): `openspec/changes/<change-id>/reviews/consensus-impl.json`
 
 ## Next Step
 

@@ -18,7 +18,7 @@ Iteratively refine an OpenSpec proposal after `/plan-feature` creates it. Each i
 
 ## Arguments
 
-`$ARGUMENTS` - OpenSpec change-id (required), optionally followed by `--max <N>` (default: 3) and `--threshold <level>` (default: "medium"; values: "critical", "high", "medium", "low")
+`$ARGUMENTS` - OpenSpec change-id (required), optionally followed by `--max <N>` (default: 3), `--threshold <level>` (default: "medium"; values: "critical", "high", "medium", "low"), and `--vendor-review` (dispatch multi-vendor review after iterate loop converges; automatic in coordinated tier)
 
 ## Prerequisites
 
@@ -78,6 +78,15 @@ THRESHOLD="medium"  # critical > high > medium > low
 Parse optional flags from `$ARGUMENTS`:
 - `--max <N>` overrides MAX_ITERATIONS
 - `--threshold <level>` overrides THRESHOLD
+- `--vendor-review` sets VENDOR_REVIEW=true
+
+```bash
+# Vendor review: explicit flag OR auto-enable in coordinated tier
+VENDOR_REVIEW=false
+if [[ "$ARGUMENTS" == *"--vendor-review"* ]] || [[ "$COORDINATOR_AVAILABLE" == "true" ]]; then
+  VENDOR_REVIEW=true
+fi
+```
 
 ### 2. Verify Proposal Exists
 
@@ -269,6 +278,75 @@ ITERATION=$((ITERATION + 1))
 
 ## After Loop
 
+### 10. Multi-Vendor Review (Conditional)
+
+**Skip this step** if `VENDOR_REVIEW=false`.
+
+After the iterate loop converges (all findings below threshold) or max iterations are reached, dispatch a multi-vendor review for a final independent validation pass.
+
+#### 10a. Dispatch `/parallel-review-plan`
+
+Write a review prompt and dispatch to other vendor CLIs:
+
+```bash
+# Create review prompt for vendor dispatch
+mkdir -p openspec/changes/$CHANGE_ID/reviews
+
+cat > openspec/changes/$CHANGE_ID/reviews/review-prompt.md <<'PROMPT'
+Review the OpenSpec plan artifacts in openspec/changes/$CHANGE_ID/.
+Read proposal.md, tasks.md, design.md (if present), and all spec deltas.
+Output ONLY valid JSON conforming to review-findings.schema.json.
+Focus on: specification completeness, contract consistency, architecture alignment, security, and work package validity.
+PROMPT
+
+# Dispatch to other vendors (excludes current agent's vendor)
+python3 "<skill-base-dir>/../parallel-infrastructure/scripts/review_dispatcher.py" \
+  --review-type plan \
+  --mode review \
+  --prompt-file "openspec/changes/$CHANGE_ID/reviews/review-prompt.md" \
+  --cwd "$(pwd)" \
+  --output-dir "openspec/changes/$CHANGE_ID/reviews" \
+  --exclude-vendor claude_code \
+  --timeout 600
+```
+
+Also produce your own findings as the primary reviewer (Steps 1-5 of `/parallel-review-plan`): read plan artifacts, evaluate against the review checklist, and write findings to `openspec/changes/$CHANGE_ID/review-findings-plan.json`.
+
+#### 10b. Synthesize Consensus
+
+```bash
+python3 "<skill-base-dir>/../parallel-infrastructure/scripts/consensus_synthesizer.py" \
+  --review-type plan \
+  --target "$CHANGE_ID" \
+  --findings "openspec/changes/$CHANGE_ID/review-findings-plan.json" \
+             "openspec/changes/$CHANGE_ID/reviews/findings-"*"-plan.json" \
+  --output "openspec/changes/$CHANGE_ID/reviews/consensus-plan.json"
+```
+
+Present consensus summary:
+- **Confirmed findings** (2+ vendors agree) — high confidence
+- **Unconfirmed findings** (single vendor) — lower confidence, warnings
+- **Disagreements** (vendors disagree on disposition) — escalate to human
+
+If no other vendors are available (CLIs not installed), skip dispatch and proceed with single-vendor findings only.
+
+#### 10c. Feed Back Findings Above Remediation Threshold
+
+The remediation threshold is the user's `--threshold` setting if provided, otherwise medium.
+
+If the consensus or vendor review surfaces new findings **at or above the remediation threshold**:
+
+1. Append the new findings to `openspec/changes/$CHANGE_ID/plan-findings.md`
+2. Run **one additional iterate cycle** (Steps 5-9) to address them
+3. Commit with message: `refine(plan): vendor-review remediation - <summary>`
+4. Do NOT re-dispatch vendor review (prevents infinite recursion)
+
+If all vendor review findings are below the remediation threshold, proceed to the summary.
+
+---
+
+### 11. Present Summary
+
 Present a summary of all iterations:
 
 ```
@@ -303,6 +381,12 @@ If `CAN_HANDOFF=true`, write a completion handoff containing:
 - Termination reason: <threshold met | max iterations reached>
 - Validation status: <openspec validate --strict result>
 
+### Vendor Review (if dispatched)
+- Vendors dispatched: <list or "skipped">
+- Consensus findings: <confirmed count> confirmed, <unconfirmed count> unconfirmed, <disagreement count> disagreements
+- Remediation cycle: <ran / not needed>
+- New findings addressed in remediation: <count or "N/A">
+
 ### Parallelizability Assessment
 - Independent tasks: <N>
 - Sequential chains: <M>
@@ -327,6 +411,7 @@ If `CAN_HANDOFF=true`, write a completion handoff containing:
 - Parallelizability assessment with dependency graph summary
 - Final proposal readiness checklist
 - Validated, refined OpenSpec proposal ready for human approval
+- Vendor review consensus (if `--vendor-review` or coordinated tier): `openspec/changes/<change-id>/reviews/consensus-plan.json`
 
 ## Next Step
 

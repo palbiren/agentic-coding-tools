@@ -24,8 +24,6 @@ REQUIRED_TABLES = [
     "audit_log",
 ]
 
-DEFAULT_DSN = "postgresql://postgres:postgres@localhost:54322/postgres"
-
 
 async def check_db(dsn: str) -> tuple[bool, str]:
     """Attempt to connect and verify required tables exist.
@@ -81,8 +79,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Wait for database readiness")
     parser.add_argument(
         "--dsn",
-        default=os.environ.get("POSTGRES_DSN", DEFAULT_DSN),
-        help="PostgreSQL connection string (default: $POSTGRES_DSN or built-in default)",
+        default=os.environ.get("POSTGRES_DSN", ""),
+        help="PostgreSQL connection string (default: $POSTGRES_DSN)",
     )
     parser.add_argument(
         "--timeout",
@@ -92,6 +90,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if not args.dsn:
+        parser.error("--dsn or POSTGRES_DSN env var is required")
     print(f"Waiting for database at {args.dsn} (timeout {args.timeout}s)...")
     ok = asyncio.run(wait_for_db(args.dsn, args.timeout))
     sys.exit(0 if ok else 1)

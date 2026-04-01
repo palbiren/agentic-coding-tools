@@ -10,7 +10,7 @@ This codebase implements a sophisticated **two-level parallel agentic developmen
 
 ### 1.1 Worktree Lifecycle: `skills/worktree/scripts/worktree.py`
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/skills/worktree/scripts/worktree.py`
+**Location:** `skills/worktree/scripts/worktree.py`
 
 **Purpose:** Manages the complete lifecycle of git worktrees for isolated parallel feature development.
 
@@ -69,7 +69,7 @@ Both are gitignored. New location keeps worktrees inside project boundary.
 
 ### 2.1 Merge Queue Service: `agent-coordinator/src/merge_queue.py`
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/agent-coordinator/src/merge_queue.py`
+**Location:** `agent-coordinator/src/merge_queue.py`
 
 **Purpose:** Coordinates ordered merging of multiple parallel features to avoid conflicts and ensure deterministic merge order.
 
@@ -151,7 +151,7 @@ merge_meta = {
 
 ### 3.1 Feature Registry Service: `agent-coordinator/src/feature_registry.py`
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/agent-coordinator/src/feature_registry.py`
+**Location:** `agent-coordinator/src/feature_registry.py`
 
 **Purpose:** Tracks active features and their resource claims; performs conflict analysis for parallel feasibility.
 
@@ -233,7 +233,7 @@ feature:      Feature-level pause locks
 
 ### 4.1 Two-Level Parallel Agentic Development (1546 lines)
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/docs/two-level-parallel-agentic-development.md`
+**Location:** `docs/two-level-parallel-agentic-development.md`
 
 **Scope:** Complete specification of cross-feature and intra-feature parallelism, DAG-scheduled work packages, contract-driven development, and deployment patterns.
 
@@ -322,7 +322,7 @@ else:
 
 #### parallel-implement-feature
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/skills/parallel-implement-feature/SKILL.md`
+**Location:** `skills/parallel-implement-feature/SKILL.md`
 
 **Purpose:** Orchestrate DAG-scheduled parallel package execution with result validation and integration.
 
@@ -370,7 +370,7 @@ If required capabilities unavailable → fallback to `/linear-implement-feature`
 
 #### parallel-cleanup-feature
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/skills/parallel-cleanup-feature/SKILL.md`
+**Location:** `skills/parallel-cleanup-feature/SKILL.md`
 
 **Purpose:** Merge via coordinator merge queue, handle cross-feature rebases, archive OpenSpec proposal.
 
@@ -585,7 +585,7 @@ pending + all depends_on completed → claimable
 
 ### 7.1 Architecture Parallel Zones Report
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/docs/architecture-analysis/parallel_zones.json` (32KB, auto-generated)
+**Location:** `docs/architecture-analysis/parallel_zones.json` (32KB, auto-generated)
 
 **Purpose:** Auto-generated dependency graph showing which modules can run in parallel (independent groups).
 
@@ -622,7 +622,7 @@ python3 skills/refresh-architecture/scripts/parallel_zones.py --analyze agent-co
 
 ### 8.1 Skills Install Script: `skills/install.sh`
 
-**Location:** `/Users/jankneumann/Coding/agentic-coding-tools/skills/install.sh`
+**Location:** `skills/install.sh`
 
 **Purpose:** Sync/copy/symlink skills to agent config directories (.claude/skills/, .codex/skills/, .gemini/skills/)
 

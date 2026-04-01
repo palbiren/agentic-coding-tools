@@ -235,3 +235,6 @@ node_modules/
 
 # Coordinator dev logs/pids (make dev-bg)
 .logs/
+
+# Security review generated reports (contain absolute paths from scan environment)
+docs/security-review/*.json

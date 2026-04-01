@@ -47,7 +47,7 @@ Command result: pass.
 ### Bridge behavior tests (HTTP capability and fallback)
 
 ```bash
-/Users/jankneumann/Coding/agentic-coding-tools/agent-coordinator/.venv/bin/pytest scripts/tests/test_coordination_bridge.py -q
+agent-coordinator/.venv/bin/pytest scripts/tests/test_coordination_bridge.py -q
 ```
 
 Result: pass (`8 passed`).

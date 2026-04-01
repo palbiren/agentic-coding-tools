@@ -120,10 +120,7 @@ class EventBusService:
         max_retries: int = 5,
         backoff_seconds: float = 1.0,
     ) -> None:
-        self._dsn = dsn or os.environ.get(
-            "POSTGRES_DSN",
-            "postgresql://postgres:postgres@localhost:54322/postgres",
-        )
+        self._dsn = dsn or os.environ.get("POSTGRES_DSN", "")
         self._channels = channels
         self._max_retries = max_retries
         self._backoff_seconds = backoff_seconds
@@ -158,6 +155,10 @@ class EventBusService:
 
     async def start(self) -> None:
         """Start listening on all configured channels."""
+        if not self._dsn:
+            raise ValueError(
+                "Database DSN required: pass dsn= or set POSTGRES_DSN env var"
+            )
         async with self._lifecycle_lock:
             if self._running:
                 return

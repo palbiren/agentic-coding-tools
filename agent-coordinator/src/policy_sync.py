@@ -48,10 +48,7 @@ class PgListenNotifyPolicySyncService(PolicySyncService):
         max_retries: int = 5,
         backoff_seconds: float = 1.0,
     ) -> None:
-        self._dsn = dsn or os.environ.get(
-            "POSTGRES_DSN",
-            "postgresql://postgres:postgres@localhost:54322/postgres",
-        )
+        self._dsn = dsn or os.environ.get("POSTGRES_DSN", "")
         self._max_retries = max_retries
         self._backoff_seconds = backoff_seconds
         self._callbacks: list[Callable[[str], Awaitable[None]]] = []
@@ -69,6 +66,10 @@ class PgListenNotifyPolicySyncService(PolicySyncService):
 
     async def start(self) -> None:
         """Start listening for policy change notifications."""
+        if not self._dsn:
+            raise ValueError(
+                "Database DSN required: pass dsn= or set POSTGRES_DSN env var"
+            )
         if self._running:
             return
         self._running = True

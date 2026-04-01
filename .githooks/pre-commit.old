@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Pre-commit hook: reject absolute user home directory paths in staged files.
+# Catches accidental leaks of /Users/<name>/... or /home/<name>/... before they
+# reach git history.
+#
+# Install: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+# Patterns that should never appear in committed files.
+# We check staged diff content only (not filenames).
+PATTERNS=(
+    '/Users/[a-zA-Z]'
+    '/home/[a-zA-Z]'
+)
+
+# Files where these patterns are expected (test fixtures, this hook itself).
+EXCLUDE_PATHS=(
+    '.githooks/pre-commit'
+    'skills/session-log/scripts/test_sanitize_session_log.py'
+)
+
+build_exclude_args() {
+    local args=""
+    for path in "${EXCLUDE_PATHS[@]}"; do
+        args+=":(exclude)${path} "
+    done
+    echo "$args"
+}
+
+EXCLUDES=$(build_exclude_args)
+
+errors=0
+for pattern in "${PATTERNS[@]}"; do
+    # Search only the added/modified lines in the staged diff
+    # shellcheck disable=SC2086
+    if matches=$(git diff --cached --diff-filter=ACMR -U0 -- . $EXCLUDES | grep -n "^\+" | grep -E "$pattern" 2>/dev/null); then
+        if [ $errors -eq 0 ]; then
+            echo "ERROR: Absolute home directory paths detected in staged changes:"
+            echo ""
+        fi
+        echo "$matches"
+        echo ""
+        errors=$((errors + 1))
+    fi
+done
+
+if [ $errors -gt 0 ]; then
+    echo "These paths leak local environment details (usernames, directory structure)."
+    echo "Replace with relative paths, environment variables, or <repo-root>/ placeholders."
+    echo ""
+    echo "To bypass (use sparingly): git commit --no-verify"
+    exit 1
+fi

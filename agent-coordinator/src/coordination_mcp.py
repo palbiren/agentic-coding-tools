@@ -11,7 +11,7 @@ Usage (Claude Code):
 
     Or manually:
     claude mcp add-json --scope user coordination \
-        '{"type":"stdio","command":".venv/bin/python","args":["-m","src.coordination_mcp"],"cwd":"/path/to/agent-coordinator","env":{"DB_BACKEND":"postgres","POSTGRES_DSN":"postgresql://postgres:postgres@localhost:54322/postgres","AGENT_ID":"claude-code-1","AGENT_TYPE":"claude_code"}}'
+        '{"type":"stdio","command":".venv/bin/python","args":["-m","src.coordination_mcp"],"cwd":"/path/to/agent-coordinator","env":{"DB_BACKEND":"postgres","POSTGRES_DSN":"postgresql://user:pass@localhost:54322/dbname","AGENT_ID":"claude-code-1","AGENT_TYPE":"claude_code"}}'
 
 Usage (standalone for testing):
     python -m src.coordination_mcp --transport sse --port 8082

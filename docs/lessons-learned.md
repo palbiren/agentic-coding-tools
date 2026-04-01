@@ -80,7 +80,7 @@ Accumulated patterns and conventions from building and operating this project.
 
 - **Shared models via sys.path**: When skills need to share Python modules (e.g., fix-scrub importing bug-scrub's `models.py`), use `sys.path.insert(0, path)` at module top level plus `importlib` for dynamic loading. The canonical models live in `bug-scrub/scripts/models.py`; fix-scrub imports them via `fix_models.py` which handles the path resolution.
 
-- **Skills tests use agent-coordinator venv**: Skills under `skills/` don't have their own venvs. Run their tests via the agent-coordinator venv: `/Users/jankneumann/Coding/agentic-coding-tools/agent-coordinator/.venv/bin/python -m pytest skills/bug-scrub/tests/ skills/fix-scrub/tests/`.
+- **Skills tests use agent-coordinator venv**: Skills under `skills/` don't have their own venvs. Run their tests via the agent-coordinator venv: `agent-coordinator/.venv/bin/python -m pytest skills/bug-scrub/tests/ skills/fix-scrub/tests/`.
 
 - **Normalize external tool output paths**: Tools like ruff return absolute paths in JSON output, but internal finding IDs use relative paths. Always normalize with `Path(abs_path).relative_to(project_dir)` before comparison. This was a critical bug caught in iteration — all findings were falsely reported as resolved.
 

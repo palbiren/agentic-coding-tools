@@ -187,10 +187,11 @@ def seed_db_engine(
     Sets up a connection to PostgreSQL and creates a role template for
     generating per-agent dynamic credentials.
     """
-    db_dsn = os.environ.get(
-        "POSTGRES_DSN",
-        "postgresql://postgres:postgres@localhost:54322/postgres",
-    )
+    db_dsn = os.environ.get("POSTGRES_DSN")
+    if not db_dsn:
+        raise ValueError(
+            "POSTGRES_DSN env var required for database secrets engine setup"
+        )
 
     if dry_run:
         print("[DRY RUN] Would enable database secrets engine at 'database/'")

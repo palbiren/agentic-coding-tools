@@ -13,6 +13,9 @@ from src.policy_sync import (
 )
 
 
+TEST_DSN = "postgresql://test:test@localhost:5432/test"
+
+
 def _make_mock_connection(*, is_closed: bool = False) -> MagicMock:
     """Create a mock asyncpg connection with the required interface."""
     conn = MagicMock()
@@ -27,7 +30,7 @@ class TestStartStopLifecycle:
     """Verify start sets running, stop cancels the listen task."""
 
     async def test_start_sets_running(self) -> None:
-        svc = PgListenNotifyPolicySyncService(max_retries=0, backoff_seconds=0.0)
+        svc = PgListenNotifyPolicySyncService(dsn=TEST_DSN, max_retries=0, backoff_seconds=0.0)
         mock_conn = _make_mock_connection()
 
         with patch("asyncpg.connect", AsyncMock(return_value=mock_conn)):
@@ -39,7 +42,7 @@ class TestStartStopLifecycle:
             assert svc.running is False
 
     async def test_start_is_idempotent(self) -> None:
-        svc = PgListenNotifyPolicySyncService(max_retries=0, backoff_seconds=0.0)
+        svc = PgListenNotifyPolicySyncService(dsn=TEST_DSN, max_retries=0, backoff_seconds=0.0)
         mock_conn = _make_mock_connection()
 
         with patch("asyncpg.connect", AsyncMock(return_value=mock_conn)):
@@ -87,7 +90,7 @@ class TestNotificationTriggersCallback:
     """Verify that a simulated NOTIFY fires registered callbacks."""
 
     async def test_notification_invokes_callback(self) -> None:
-        svc = PgListenNotifyPolicySyncService(max_retries=0, backoff_seconds=0.0)
+        svc = PgListenNotifyPolicySyncService(dsn=TEST_DSN, max_retries=0, backoff_seconds=0.0)
         received: list[str] = []
 
         async def track(payload: str) -> None:
@@ -137,7 +140,7 @@ class TestReconnectionOnFailure:
 
     async def test_retries_on_connect_failure(self) -> None:
         svc = PgListenNotifyPolicySyncService(
-            max_retries=3, backoff_seconds=0.01
+            dsn=TEST_DSN, max_retries=3, backoff_seconds=0.01
         )
         connect_attempts = 0
 
@@ -166,7 +169,7 @@ class TestMaxRetriesExceeded:
 
     async def test_stops_after_max_retries(self) -> None:
         svc = PgListenNotifyPolicySyncService(
-            max_retries=2, backoff_seconds=0.01
+            dsn=TEST_DSN, max_retries=2, backoff_seconds=0.01
         )
 
         async def always_fail(*args: object, **kwargs: object) -> MagicMock:
@@ -193,7 +196,7 @@ class TestSafeCallbackHandlesErrors:
         # If we get here, the exception was caught
 
     async def test_one_bad_callback_doesnt_block_others(self) -> None:
-        svc = PgListenNotifyPolicySyncService(max_retries=0, backoff_seconds=0.0)
+        svc = PgListenNotifyPolicySyncService(dsn=TEST_DSN, max_retries=0, backoff_seconds=0.0)
         results: list[str] = []
 
         async def bad_cb(payload: str) -> None:

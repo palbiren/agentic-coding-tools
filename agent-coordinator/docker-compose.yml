@@ -5,7 +5,8 @@ services:
   # PostgreSQL database with ParadeDB extensions
   postgres:
     image: paradedb/paradedb:v0.22.2
-    container_name: agent-coordinator-db
+    # No container_name — let Docker auto-generate from COMPOSE_PROJECT_NAME
+    # to support parallel isolated stacks via port allocator
     ports:
       - "${AGENT_COORDINATOR_DB_PORT:-54322}:5432"
     environment:
@@ -23,7 +24,7 @@ services:
   # OpenBao secret manager (dev mode — auto-unsealed, ephemeral storage)
   openbao:
     image: quay.io/openbao/openbao:latest
-    container_name: agent-coordinator-bao
+    # No container_name — same reason as postgres above
     ports:
       - "${AGENT_COORDINATOR_BAO_PORT:-8200}:8200"
     environment:

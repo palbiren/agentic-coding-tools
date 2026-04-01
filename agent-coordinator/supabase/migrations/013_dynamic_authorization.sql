@@ -27,12 +27,23 @@ CREATE TABLE IF NOT EXISTS approval_queue (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_approval_queue_status
-  ON approval_queue (status, created_at)
-  WHERE status = 'pending';
+-- Wrap index creation in exception handler because 005_verification_tables.sql
+-- may have created approval_queue with a different schema (no agent_id column).
+-- Migration 014 drops and recreates with the correct schema.
+DO $$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_approval_queue_status
+    ON approval_queue (status, created_at)
+    WHERE status = 'pending';
+EXCEPTION WHEN undefined_column THEN
+  RAISE WARNING '013: idx_approval_queue_status skipped (schema mismatch, fixed by 014)';
+END $$;
 
-CREATE INDEX IF NOT EXISTS idx_approval_queue_agent
-  ON approval_queue (agent_id, created_at);
+DO $$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_approval_queue_agent
+    ON approval_queue (agent_id, created_at);
+EXCEPTION WHEN undefined_column THEN
+  RAISE WARNING '013: idx_approval_queue_agent skipped (schema mismatch, fixed by 014)';
+END $$;
 
 -- 3. Cedar policies history
 CREATE TABLE IF NOT EXISTS cedar_policies_history (

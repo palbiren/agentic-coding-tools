@@ -23,7 +23,7 @@ SHELL := /bin/bash
 # lives at the repo root and agent-coordinator is a subdirectory.
 ARCH_DIR         ?= docs/architecture-analysis
 VIEWS_DIR        := $(ARCH_DIR)/views
-SCRIPTS_DIR      ?= scripts
+SCRIPTS_DIR      ?= skills/refresh-architecture/scripts
 PYTHON_SRC_DIR   ?= agent-coordinator/src
 TS_SRC_DIR       ?= web
 MIGRATIONS_DIR   ?= agent-coordinator/supabase/migrations

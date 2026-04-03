@@ -1,29 +1,59 @@
 {
-  "updated_at": "2026-03-05T17:00:00Z",
+  "updated_at": "2026-04-03T10:00:00Z",
   "recommendations": [
+    {
+      "opportunity_id": "implement-gen-eval-testing",
+      "recommended_at": "2026-04-03T10:00:00Z",
+      "status": "recommended",
+      "reason": "Only active OpenSpec change with work remaining. 56 tasks fully planned. All infrastructure dependencies shipped. Top recommendation."
+    },
+    {
+      "opportunity_id": "refresh-architecture-analysis",
+      "recommended_at": "2026-04-03T10:00:00Z",
+      "status": "recommended",
+      "reason": "Architecture analysis 110 commits stale. Quick automated refresh before big-bet implementation."
+    },
+    {
+      "opportunity_id": "add-coordination-api-hardening",
+      "recommended_at": "2026-04-03T10:00:00Z",
+      "status": "recommended",
+      "reason": "Two beads tasks ready (CORS + /ready endpoint). Quick-win API hardening."
+    },
+    {
+      "opportunity_id": "add-coordinator-assurance-verification",
+      "recommended_at": "2026-04-03T10:00:00Z",
+      "status": "deferred",
+      "reason": "Deferred until gen-eval-testing completes. Gen-eval covers much of the behavioral verification gap."
+    },
+    {
+      "opportunity_id": "refactor-parallel-architecture",
+      "recommended_at": "2026-04-03T10:00:00Z",
+      "status": "deferred",
+      "reason": "Needs hotspot analysis from fresh architecture data. Defer until after architecture refresh."
+    },
     {
       "opportunity_id": "add-worktree-bootstrap",
       "recommended_at": "2026-03-05T15:00:00Z",
       "status": "completed",
-      "reason": "Implemented as part of add-parallel-git-workflow. worktree-bootstrap.sh copies .env/.secrets.yaml, runs uv sync, syncs skills. Integrated into worktree.py setup."
+      "reason": "Implemented as part of add-parallel-git-workflow."
     },
     {
       "opportunity_id": "add-git-parallel-config",
       "recommended_at": "2026-03-05T15:00:00Z",
       "status": "completed",
-      "reason": "Implemented as part of add-parallel-git-workflow. git-parallel-setup.sh enables rerere, zdiff3, histogram, updateRefs. .gitattributes added."
+      "reason": "Implemented as part of add-parallel-git-workflow."
     },
     {
       "opportunity_id": "add-github-merge-queue",
       "recommended_at": "2026-03-05T15:00:00Z",
       "status": "completed",
-      "reason": "Implemented as part of add-parallel-git-workflow. merge_group CI trigger added. merge_pr.py and parallel-cleanup skill updated."
+      "reason": "Implemented as part of add-parallel-git-workflow."
     },
     {
       "opportunity_id": "close-near-complete-changes",
       "recommended_at": "2026-03-04T10:00:00Z",
       "status": "completed",
-      "reason": "Both adopt-opsx-1.0-workflow (22/22) and complete-missing-coordination-features (99/99) closed and archived 2026-03-05."
+      "reason": "Both adopt-opsx-1.0-workflow and complete-missing-coordination-features closed and archived."
     },
     {
       "opportunity_id": "add-ci-skills-tests",

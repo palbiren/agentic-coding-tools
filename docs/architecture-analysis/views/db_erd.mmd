@@ -3,17 +3,15 @@ erDiagram
         TEXT agent_id
         TIMESTAMPTZ assigned_at
         TEXT assigned_by
-        UNKNOWN enable
         UUID id
         UUID profile_id
     }
     public__agent_profiles {
         TEXT agent_type
-        TEXT allowed_operations
-        TEXT blocked_operations
+        TEXT__ allowed_operations
+        TEXT__ blocked_operations
         TIMESTAMPTZ created_at
         TEXT description
-        UNKNOWN enable
         BOOLEAN enabled
         UUID id
         INT max_api_calls_per_hour
@@ -26,13 +24,13 @@ erDiagram
         TIMESTAMPTZ updated_at
     }
     public__agent_sessions {
+        NOT_EXISTS_delegated_from_TEXT IF
         TEXT agent_id
         TEXT agent_type
-        TEXT capabilities
+        TEXT__ capabilities
         TEXT current_task
-        UNKNOWN enable
         TIMESTAMPTZ ended_at
-        TEXT files_modified
+        TEXT__ files_modified
         TEXT id
         TIMESTAMPTZ last_heartbeat
         JSONB metadata
@@ -42,15 +40,17 @@ erDiagram
         INTEGER tasks_completed
     }
     public__approval_queue {
-        UUID changeset_id
+        TEXT agent_id
+        TEXT agent_type
+        JSONB context
         TIMESTAMPTZ created_at
-        UNKNOWN enable
+        TIMESTAMPTZ decided_at
+        TEXT decided_by
+        TIMESTAMPTZ expires_at
         UUID id
+        TEXT operation
         TEXT reason
-        TEXT requested_by
-        TEXT review_notes
-        TIMESTAMPTZ reviewed_at
-        TEXT reviewed_by
+        TEXT resource
         TEXT status
     }
     public__audit_log {
@@ -58,7 +58,6 @@ erDiagram
         TEXT agent_type
         TIMESTAMPTZ created_at
         INT duration_ms
-        UNKNOWN enable
         TEXT error_message
         UUID id
         TEXT operation
@@ -69,7 +68,6 @@ erDiagram
     public__cedar_entities {
         JSONB attributes
         TIMESTAMPTZ created_at
-        UNKNOWN enable
         TEXT entity_id
         TEXT entity_type
         UUID id
@@ -77,15 +75,25 @@ erDiagram
         TIMESTAMPTZ updated_at
     }
     public__cedar_policies {
+        NOT_EXISTS_policy_version_INTEGER IF
         TIMESTAMPTZ created_at
         TEXT description
-        UNKNOWN enable
         BOOLEAN enabled
         UUID id
         TEXT name
         TEXT policy_text
         INTEGER priority
         TIMESTAMPTZ updated_at
+    }
+    public__cedar_policies_history {
+        TEXT change_type
+        TIMESTAMPTZ changed_at
+        TEXT changed_by
+        UUID id
+        UUID policy_id
+        TEXT policy_name
+        TEXT policy_text
+        INTEGER version
     }
     public__changesets {
         TEXT agent_id
@@ -94,7 +102,6 @@ erDiagram
         TEXT commit_sha
         TIMESTAMPTZ created_at
         TEXT description
-        UNKNOWN enable
         UUID id
         TEXT session_id
         TEXT status
@@ -105,16 +112,16 @@ erDiagram
         TIMESTAMPTZ completed_at
         TEXT feature_id
         INTEGER merge_priority
+        JSONB metadata
         TIMESTAMPTZ registered_at
         TEXT registered_by
-        TEXT resource_claims
+        TEXT__ resource_claims
         TEXT status
         TEXT title
         TIMESTAMPTZ updated_at
     }
     public__file_locks {
         TEXT agent_type
-        UNKNOWN enable
         TIMESTAMPTZ expires_at
         TEXT file_path
         TIMESTAMPTZ locked_at
@@ -130,7 +137,6 @@ erDiagram
         TEXT category
         JSONB context
         TIMESTAMPTZ created_at
-        UNKNOWN enable
         UUID id
         TEXT matched_text
         TEXT operation_text
@@ -142,7 +148,6 @@ erDiagram
         JSONB completed_work
         TIMESTAMPTZ created_at
         JSONB decisions
-        UNKNOWN enable
         UUID id
         JSONB in_progress
         JSONB next_steps
@@ -154,24 +159,22 @@ erDiagram
         TEXT agent_id
         TIMESTAMPTZ created_at
         JSONB details
-        UNKNOWN enable
         TEXT event_type
         UUID id
-        TEXT lessons
+        TEXT__ lessons
         TEXT outcome
         FLOAT relevance_score
         TEXT session_id
         TEXT summary
-        TEXT tags
+        TEXT__ tags
     }
     public__memory_procedural {
         TIMESTAMPTZ created_at
         TEXT description
-        UNKNOWN enable
         INT failure_count
         UUID id
         TIMESTAMPTZ last_used
-        TEXT prerequisites
+        TEXT__ prerequisites
         TEXT skill_name
         JSONB steps
         INT success_count
@@ -180,9 +183,9 @@ erDiagram
     public__memory_working {
         TEXT agent_id
         TIMESTAMPTZ created_at
-        UNKNOWN enable
         TIMESTAMPTZ expires_at
         UUID id
+        TEXT key
         TEXT session_id
         TIMESTAMPTZ updated_at
         JSONB value
@@ -192,7 +195,6 @@ erDiagram
         BOOLEAN allowed
         TIMESTAMPTZ created_at
         TEXT domain
-        UNKNOWN enable
         UUID id
         UUID policy_id
         TEXT reason
@@ -202,17 +204,24 @@ erDiagram
         TIMESTAMPTZ created_at
         TEXT description
         TEXT domain_pattern
-        UNKNOWN enable
         BOOLEAN enabled
         UUID id
         INT priority
         UUID profile_id
     }
+    public__notification_tokens {
+        TEXT change_id
+        TIMESTAMPTZ created_at
+        TEXT entity_id
+        TEXT event_type
+        TIMESTAMPTZ expires_at
+        TEXT token
+        TIMESTAMPTZ used_at
+    }
     public__operation_guardrails {
         TEXT category
         TIMESTAMPTZ created_at
         TEXT description
-        UNKNOWN enable
         BOOLEAN enabled
         UUID id
         INT min_trust_level
@@ -220,40 +229,57 @@ erDiagram
         TEXT pattern
         TEXT severity
     }
+    public__session_permission_grants {
+        TEXT agent_id
+        TEXT approved_by
+        TIMESTAMPTZ expires_at
+        TIMESTAMPTZ granted_at
+        UUID id
+        TEXT justification
+        TEXT operation
+        TEXT session_id
+    }
     public__verification_policies {
         JSONB config
         TIMESTAMPTZ created_at
         TEXT description
-        UNKNOWN enable
         BOOLEAN enabled
-        UNKNOWN executor
+        verification_executor executor
         TEXT file_pattern
         UUID id
         TEXT name
         INT priority
-        UNKNOWN tier
+        verification_tier tier
     }
     public__verification_results {
         UUID changeset_id
         TIMESTAMPTZ completed_at
         TIMESTAMPTZ created_at
         INT duration_ms
-        UNKNOWN enable
         TEXT error_message
-        UNKNOWN executor
+        verification_executor executor
         UUID id
         JSONB result
         TIMESTAMPTZ started_at
-        UNKNOWN status
-        UNKNOWN tier
+        verification_status status
+        verification_tier tier
     }
     public__work_queue {
+        INTEGER attempt_count
         TIMESTAMPTZ claimed_at
         TEXT claimed_by
+        TIMESTAMPTZ completed_at
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ deadline
+        UUID__ depends_on
         TEXT description
-        UNKNOWN enable
+        TEXT error_message
         UUID id
         JSONB input_data
+        INTEGER max_attempts
         INTEGER priority
+        JSONB result
+        TIMESTAMPTZ started_at
+        TEXT status
         TEXT task_type
     }

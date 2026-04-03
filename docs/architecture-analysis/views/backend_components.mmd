@@ -1,54 +1,102 @@
 flowchart TB
     __init__["__init__ (1 symbols)"]
-    agents_config["agents_config (10 symbols)"]
+    agents_config["agents_config (18 symbols)"]
+    approval["approval (14 symbols)"]
     assurance["assurance (1 symbols)"]
     audit["audit (17 symbols)"]
-    config["config (29 symbols)"]
-    coordination_api["coordination_api (35 symbols)"]
-    coordination_mcp["coordination_mcp (36 symbols)"]
+    config["config (39 symbols)"]
+    coordination_api["coordination_api (71 symbols)"]
+    coordination_cli["coordination_cli (32 symbols)"]
+    coordination_mcp["coordination_mcp (55 symbols)"]
     db["db (23 symbols)"]
     db_postgres["db_postgres (14 symbols)"]
     discovery["discovery (20 symbols)"]
-    docker_manager["docker_manager (5 symbols)"]
+    docker_manager["docker_manager (8 symbols)"]
+    event_bus["event_bus (21 symbols)"]
     feature_registry["feature_registry (19 symbols)"]
     github_coordination["github_coordination (16 symbols)"]
-    guardrails["guardrails (13 symbols)"]
+    guardrails["guardrails (15 symbols)"]
     handoffs["handoffs (14 symbols)"]
-    locks["locks (15 symbols)"]
+    locks["locks (18 symbols)"]
     memory["memory (13 symbols)"]
     merge_queue["merge_queue (17 symbols)"]
+    migrations["migrations (5 symbols)"]
     network_policies["network_policies (8 symbols)"]
-    policy_engine["policy_engine (28 symbols)"]
+    notifications____init__["notifications.__init__ (1 symbols)"]
+    notifications__base["notifications.base (10 symbols)"]
+    notifications__gmail["notifications.gmail (13 symbols)"]
+    notifications__notifier["notifications.notifier (14 symbols)"]
+    notifications__relay["notifications.relay (6 symbols)"]
+    notifications__telegram["notifications.telegram (11 symbols)"]
+    notifications__templates["notifications.templates (11 symbols)"]
+    notifications__webhook["notifications.webhook (8 symbols)"]
+    policy_engine["policy_engine (36 symbols)"]
+    policy_sync["policy_sync (17 symbols)"]
     port_allocator["port_allocator (12 symbols)"]
-    profile_loader["profile_loader (11 symbols)"]
+    profile_loader["profile_loader (14 symbols)"]
     profiles["profiles (14 symbols)"]
+    risk_scorer["risk_scorer (14 symbols)"]
+    session_grants["session_grants (13 symbols)"]
+    status["status (6 symbols)"]
     teams["teams (10 symbols)"]
-    work_queue["work_queue (22 symbols)"]
+    telemetry["telemetry (20 symbols)"]
+    watchdog["watchdog (18 symbols)"]
+    work_queue["work_queue (24 symbols)"]
     agents_config -->|"call"| profile_loader
     agents_config -->|"call"| teams
+    approval -->|"call, import"| db
     audit -->|"call, import"| config
     audit -->|"call, import"| db
     config -->|"call"| agents_config
     config -->|"call"| profile_loader
+    coordination_api -->|"call, import"| agents_config
+    coordination_api -->|"call, import"| approval
     coordination_api -->|"call, import"| audit
     coordination_api -->|"call, import"| config
+    coordination_api -->|"call, import"| discovery
+    coordination_api -->|"call, import"| event_bus
+    coordination_api -->|"call, import"| feature_registry
     coordination_api -->|"call, import"| guardrails
+    coordination_api -->|"call, import"| handoffs
     coordination_api -->|"call, import"| locks
     coordination_api -->|"call, import"| memory
+    coordination_api -->|"call, import"| merge_queue
+    coordination_api -->|"call, import"| migrations
+    coordination_api -->|"call, import"| notifications__notifier
     coordination_api -->|"call, import"| policy_engine
     coordination_api -->|"call, import"| port_allocator
     coordination_api -->|"call, import"| profiles
+    coordination_api -->|"call, import"| telemetry
+    coordination_api -->|"call, import"| watchdog
     coordination_api -->|"call, import"| work_queue
+    coordination_cli -->|"call, import"| audit
+    coordination_cli -->|"call, import"| config
+    coordination_cli -->|"call, import"| db
+    coordination_cli -->|"call, import"| feature_registry
+    coordination_cli -->|"call, import"| guardrails
+    coordination_cli -->|"call, import"| handoffs
+    coordination_cli -->|"call, import"| locks
+    coordination_cli -->|"call, import"| memory
+    coordination_cli -->|"call, import"| merge_queue
+    coordination_cli -->|"call, import"| work_queue
+    coordination_mcp -->|"call, import"| agents_config
+    coordination_mcp -->|"call, import"| approval
     coordination_mcp -->|"call, import"| audit
     coordination_mcp -->|"call, import"| config
     coordination_mcp -->|"call, import"| discovery
+    coordination_mcp -->|"call, import"| event_bus
+    coordination_mcp -->|"call, import"| feature_registry
     coordination_mcp -->|"call, import"| guardrails
     coordination_mcp -->|"call, import"| handoffs
     coordination_mcp -->|"call, import"| locks
     coordination_mcp -->|"call, import"| memory
+    coordination_mcp -->|"call, import"| merge_queue
+    coordination_mcp -->|"call, import"| migrations
     coordination_mcp -->|"call, import"| policy_engine
     coordination_mcp -->|"call, import"| port_allocator
     coordination_mcp -->|"call, import"| profiles
+    coordination_mcp -->|"call, import"| session_grants
+    coordination_mcp -->|"call, import"| telemetry
     coordination_mcp -->|"call, import"| work_queue
     db -->|"call, import"| config
     db -->|"import"| db_postgres
@@ -65,36 +113,54 @@ flowchart TB
     guardrails -->|"call, import"| audit
     guardrails -->|"call, import"| config
     guardrails -->|"call, import"| db
+    guardrails -->|"call, import"| telemetry
     handoffs -->|"call, import"| audit
     handoffs -->|"call, import"| config
     handoffs -->|"call, import"| db
     handoffs -->|"call, import"| policy_engine
+    locks -->|"call"| approval
     locks -->|"call, import"| audit
     locks -->|"call, import"| config
     locks -->|"call, import"| db
     locks -->|"call, import"| policy_engine
+    locks -->|"call, import"| telemetry
     memory -->|"call, import"| audit
     memory -->|"call, import"| config
     memory -->|"call, import"| db
     memory -->|"call, import"| policy_engine
+    merge_queue -->|"call"| approval
     merge_queue -->|"call, import"| audit
     merge_queue -->|"call, import"| db
     merge_queue -->|"call, import"| feature_registry
+    migrations -->|"call, import"| config
     network_policies -->|"call, import"| config
     network_policies -->|"call, import"| db
+    notifications__gmail -->|"call"| db
+    notifications__gmail -->|"call"| notifications__relay
+    notifications__gmail -->|"call"| notifications__templates
+    notifications__gmail -->|"call"| status
+    notifications__notifier -->|"call"| notifications__templates
     policy_engine -->|"call, import"| audit
     policy_engine -->|"call, import"| config
     policy_engine -->|"call, import"| db
     policy_engine -->|"call, import"| network_policies
     policy_engine -->|"call, import"| profiles
+    policy_engine -->|"call, import"| telemetry
     port_allocator -->|"import"| config
     profiles -->|"call, import"| audit
     profiles -->|"call, import"| config
     profiles -->|"call, import"| db
+    risk_scorer -->|"call, import"| db
+    session_grants -->|"call"| approval
+    session_grants -->|"call, import"| db
+    watchdog -->|"call, import"| db
+    watchdog -->|"call, import"| event_bus
     work_queue -->|"call, import"| audit
     work_queue -->|"call, import"| config
     work_queue -->|"call, import"| db
     work_queue -->|"call"| discovery
     work_queue -->|"call, import"| guardrails
+    work_queue -->|"call"| locks
     work_queue -->|"call, import"| policy_engine
     work_queue -->|"call, import"| profiles
+    work_queue -->|"call, import"| telemetry

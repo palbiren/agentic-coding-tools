@@ -238,3 +238,6 @@ node_modules/
 
 # Security review generated reports (contain absolute paths from scan environment)
 docs/security-review/*.json
+
+# Skill/review artifacts (generated output, not source)
+artifacts/

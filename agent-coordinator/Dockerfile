@@ -28,8 +28,12 @@ WORKDIR /app
 # Copy the virtual environment from the build stage
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application source code
+# Copy application source code and runtime config assets loaded from disk.
 COPY src/ /app/src/
+COPY profiles/ /app/profiles/
+COPY cedar/ /app/cedar/
+COPY agents.yaml /app/agents.yaml
+COPY teams.yaml /app/teams.yaml
 
 # Create non-root user and switch to it
 RUN groupadd --system appuser && \
@@ -43,5 +47,5 @@ ENV DB_BACKEND=postgres
 # Expose the API port (Railway overrides via $PORT)
 EXPOSE 8081
 
-# Run uvicorn — use $PORT for Railway compatibility, :: for dual-stack private networking
-CMD ["/bin/sh", "-c", "/app/.venv/bin/python -m uvicorn src.coordination_api:create_coordination_api --factory --host :: --port ${PORT:-8081}"]
+# Run uvicorn — use $PORT for Railway, 0.0.0.0 so Railway proxy/healthcheck can reach us
+CMD ["/bin/sh", "-c", "/app/.venv/bin/python -m uvicorn src.coordination_api:create_coordination_api --factory --host 0.0.0.0 --port ${PORT:-8081}"]

@@ -40,8 +40,8 @@ USER appuser
 # Default environment
 ENV DB_BACKEND=postgres
 
-# Expose the API port
+# Expose the API port (Railway overrides via $PORT)
 EXPOSE 8081
 
-# Run uvicorn from the venv
-ENTRYPOINT ["/app/.venv/bin/python", "-m", "uvicorn", "src.coordination_api:create_coordination_api", "--factory", "--host", "0.0.0.0", "--port", "8081"]
+# Run uvicorn — use $PORT for Railway compatibility, :: for dual-stack private networking
+CMD ["/bin/sh", "-c", "/app/.venv/bin/python -m uvicorn src.coordination_api:create_coordination_api --factory --host :: --port ${PORT:-8081}"]

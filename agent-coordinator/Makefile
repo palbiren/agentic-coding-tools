@@ -238,6 +238,30 @@ hooks-setup: claude-hooks-setup codex-hooks-setup gemini-wrapper-install ## Inst
 	@echo "  Gemini CLI:  ~/.local/bin/gemini-coord (wrapper script)"
 
 # ---------------------------------------------------------------------------
+# Phase: Cloud Setup
+# ---------------------------------------------------------------------------
+
+# DOMAIN is required for cloud-setup; fail early with a clear message.
+DOMAIN ?=
+
+.PHONY: cloud-setup
+cloud-setup: ## Generate cloud coordinator config (DOMAIN=coord.yourdomain.com)
+	@if [ -z "$(DOMAIN)" ]; then \
+		echo "Usage: make cloud-setup DOMAIN=coord.yourdomain.com"; \
+		echo "       make cloud-setup DOMAIN=coord.yourdomain.com --verify"; \
+		exit 1; \
+	fi
+	python3 $(CURDIR)/scripts/setup_cloud.py --domain "$(DOMAIN)" $(CLOUD_SETUP_FLAGS)
+
+.PHONY: cloud-verify
+cloud-verify: ## Verify cloud coordinator connectivity (DOMAIN=coord.yourdomain.com)
+	@if [ -z "$(DOMAIN)" ]; then \
+		echo "Usage: make cloud-verify DOMAIN=coord.yourdomain.com"; \
+		exit 1; \
+	fi
+	python3 $(CURDIR)/scripts/setup_cloud.py --domain "$(DOMAIN)" --verify
+
+# ---------------------------------------------------------------------------
 # Phase: Quality
 # ---------------------------------------------------------------------------
 

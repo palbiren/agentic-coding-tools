@@ -158,7 +158,26 @@ Run the setup-coordinator skill with `--mode web` to verify cloud connectivity:
 
 ## 8. Configure Agent Environments
 
-Once the coordinator is deployed and verified, configure each agent CLI to connect via HTTP.
+Once the coordinator is deployed and verified, configure each agent CLI to connect.
+
+### Quick Setup
+
+Generate all configuration with one command:
+
+```bash
+cd agent-coordinator
+make cloud-setup DOMAIN=coord.yourdomain.com
+```
+
+This generates API keys, writes `.env.cloud` (local agent env vars), and prints the Railway env vars to set in the dashboard. Then:
+
+```bash
+source .env.cloud          # activate in current shell
+make hooks-setup           # install lifecycle hooks
+make cloud-verify DOMAIN=coord.yourdomain.com   # test connectivity
+```
+
+To persist across shell sessions, add `source /path/to/.env.cloud` to `~/.zshrc` or `~/.bashrc`.
 
 ### Connection Modes
 

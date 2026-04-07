@@ -79,6 +79,11 @@ Given a project already uses OpenSpec
 When bootstrap runs
 Then the generated guidance references the existing change workflow rather than creating a separate process
 
+#### Scenario: Bootstrap fails gracefully without gen-eval
+Given a project that has not enabled gen-eval (no descriptor or scenario directories)
+When the software-factory bootstrap runs
+Then it exits with a clear error indicating gen-eval must be configured first and provides setup guidance
+
 #### Scenario: Bootstrap includes dogfood-ready example for this repository
 Given this repository is the target project
 When bootstrap runs

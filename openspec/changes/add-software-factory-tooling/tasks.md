@@ -56,8 +56,8 @@
   **Design decisions**: `D2`, `D4`
   **Dependencies**: `3.1`, `1.2`
 
-- [ ] 3.3 Add `process-analysis.md` / `process-analysis.json` generation from validation, iteration, and session artifacts
-  **Files**: `openspec/schemas/feature-workflow/schema.yaml`, `openspec/schemas/feature-workflow/templates/process-analysis.md`, `skills/validate-feature/scripts/process_analysis.py`, `skills/session-log/SKILL.md`
+- [ ] 3.3 Add `process-analysis.md` / `process-analysis.json` generation in `/validate-feature` from validation, iteration, and session artifacts
+  **Files**: `openspec/schemas/feature-workflow/schema.yaml`, `openspec/schemas/feature-workflow/templates/process-analysis.md`, `skills/validate-feature/scripts/process_analysis.py`
   **Spec scenarios**: `skill-workflow.2.1-2.3`
   **Design decisions**: `D5`
   **Dependencies**: `3.1`

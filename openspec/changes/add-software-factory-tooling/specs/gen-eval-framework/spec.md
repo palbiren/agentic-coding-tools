@@ -49,6 +49,11 @@ Given a completed evaluation run
 When the report is generated
 Then it includes pass/fail counts and coverage percentages grouped by visibility
 
+#### Scenario: Implementation context rejects explicit holdout request
+Given an implementation-context run with an explicit request to include holdout scenarios
+When gen-eval validates the request
+Then it rejects the request with a clear error indicating holdout scenarios are not available in implementation context
+
 ### Requirement: DTU Scaffold From Public Docs
 
 The framework SHALL support generating a DTU-lite scaffold from public SDK/API documentation, examples, auth guidance, and error-mode descriptions.

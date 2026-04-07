@@ -162,20 +162,22 @@ Once the coordinator is deployed and verified, configure each agent CLI to conne
 
 ### Quick Setup
 
-Generate all configuration with one command:
+Generate all configuration and push to Railway in one command:
 
 ```bash
 cd agent-coordinator
-make cloud-setup DOMAIN=coord.yourdomain.com
+make cloud-setup DOMAIN=coord.yourdomain.com RAILWAY=1
 ```
 
-This generates API keys, writes `.env.cloud` (local agent env vars), and prints the Railway env vars to set in the dashboard. Then:
+This generates API keys, writes `.env.cloud` (local agent env vars), auto-detects the Railway API service, and pushes `COORDINATION_API_KEYS` + `COORDINATION_API_KEY_IDENTITIES` via the Railway CLI. Then:
 
 ```bash
 source .env.cloud          # activate in current shell
 make hooks-setup           # install lifecycle hooks
 make cloud-verify DOMAIN=coord.yourdomain.com   # test connectivity
 ```
+
+Prerequisites for `RAILWAY=1`: Railway CLI installed, authenticated (`railway login`), and linked (`railway link`). Without `RAILWAY=1`, the script prints the values for manual dashboard entry.
 
 To persist across shell sessions, add `source /path/to/.env.cloud` to `~/.zshrc` or `~/.bashrc`.
 

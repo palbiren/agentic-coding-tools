@@ -241,20 +241,26 @@ hooks-setup: claude-hooks-setup codex-hooks-setup gemini-wrapper-install ## Inst
 # Phase: Cloud Setup
 # ---------------------------------------------------------------------------
 
-# DOMAIN is required for cloud-setup; fail early with a clear message.
-DOMAIN ?=
+# DOMAIN is required for cloud targets.
+# RAILWAY=1 auto-detects and pushes to Railway; RAILWAY_SERVICE overrides detection.
+DOMAIN          ?=
+RAILWAY_SERVICE ?=
 
 .PHONY: cloud-setup
-cloud-setup: ## Generate cloud coordinator config (DOMAIN=coord.yourdomain.com)
+cloud-setup: ## Generate config + push to Railway (DOMAIN=... [RAILWAY=1])
 	@if [ -z "$(DOMAIN)" ]; then \
-		echo "Usage: make cloud-setup DOMAIN=coord.yourdomain.com"; \
-		echo "       make cloud-setup DOMAIN=coord.yourdomain.com --verify"; \
+		echo "Usage:"; \
+		echo "  make cloud-setup DOMAIN=coord.yourdomain.com              # manual"; \
+		echo "  make cloud-setup DOMAIN=coord.yourdomain.com RAILWAY=1    # auto-push"; \
 		exit 1; \
 	fi
-	python3 $(CURDIR)/scripts/setup_cloud.py --domain "$(DOMAIN)" $(CLOUD_SETUP_FLAGS)
+	python3 $(CURDIR)/scripts/setup_cloud.py --domain "$(DOMAIN)" \
+		$(if $(RAILWAY),--railway) \
+		$(if $(RAILWAY_SERVICE),--railway-service "$(RAILWAY_SERVICE)") \
+		$(CLOUD_SETUP_FLAGS)
 
 .PHONY: cloud-verify
-cloud-verify: ## Verify cloud coordinator connectivity (DOMAIN=coord.yourdomain.com)
+cloud-verify: ## Verify cloud coordinator connectivity (DOMAIN=...)
 	@if [ -z "$(DOMAIN)" ]; then \
 		echo "Usage: make cloud-verify DOMAIN=coord.yourdomain.com"; \
 		exit 1; \

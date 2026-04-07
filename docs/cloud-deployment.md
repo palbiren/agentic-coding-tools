@@ -160,11 +160,16 @@ Run the setup-coordinator skill with `--mode web` to verify cloud connectivity:
 
 Once the coordinator is deployed and verified, configure each agent CLI to connect via HTTP.
 
-### Concepts
+### Connection Modes
 
-- **Local agents** (running on your machine) connect via **MCP** over stdio — no server needed, configured by `make mcp-setup`
-- **Cloud/remote agents** connect via **HTTP** to the Railway public URL with API key auth
-- Agent identities are defined in `agent-coordinator/agents.yaml` and mapped to API keys server-side via `COORDINATION_API_KEY_IDENTITIES`
+There are two ways local agents can connect to the Railway coordinator:
+
+| Mode | Transport | Local agent connects to | DB exposed? | Tool integration |
+|------|-----------|------------------------|-------------|-----------------|
+| **MCP + Railway DB** | MCP (stdio) | Railway Postgres (public TCP) | Yes | Native — 30+ `mcp__coordination__*` tools |
+| **HTTP** | HTTPS | Railway API (public HTTPS) | No | Via coordination bridge (auto-detected) |
+
+**Recommendation: HTTP for all agents.** It keeps the database on Railway's private network (no public TCP port), works through any firewall, and provides centralized audit logging. The latency difference (~50ms vs ~1ms) is negligible for coordination operations. Use MCP + direct DB only for local-only development with Docker Postgres.
 
 ### 8a. Generate API Keys
 
@@ -187,20 +192,9 @@ COORDINATION_API_KEYS=<claude-key>,<codex-key>
 COORDINATION_API_KEY_IDENTITIES={"<claude-key>":{"agent_id":"claude-remote","agent_type":"claude_code"},"<codex-key>":{"agent_id":"codex-remote","agent_type":"codex"}}
 ```
 
-### 8b. Claude Code (CLI — local machine)
+### 8b. Claude Code (CLI — HTTP mode, recommended)
 
-For local Claude Code sessions that should coordinate with cloud agents, use MCP (no HTTP needed):
-
-```bash
-cd agent-coordinator
-make claude-mcp-setup   # Registers MCP server in ~/.claude.json
-```
-
-This gives the local CLI access to all coordination tools (`mcp__coordination__*`) via stdio transport.
-
-### 8c. Claude Code (Web / Remote)
-
-Claude Code `--remote` sessions and web-based agents connect via HTTP. Set these environment variables in the agent's runtime:
+Set environment variables so the coordination bridge uses HTTP to the Railway API:
 
 ```bash
 export COORDINATION_API_URL="https://your-app.railway.app"
@@ -208,28 +202,61 @@ export COORDINATION_API_KEY="<claude-key>"
 export COORDINATION_ALLOWED_HOSTS="your-app.railway.app"
 ```
 
-The coordination bridge auto-detects HTTP transport when these are set. Skills that use the coordinator (plan, implement, cleanup) will use HTTP instead of MCP.
-
-To verify connectivity:
+Skills auto-detect HTTP transport when these are set. To verify:
 
 ```bash
 python3 skills/coordination-bridge/scripts/check_coordinator.py \
   --url "https://your-app.railway.app"
 ```
 
-### 8d. Codex (CLI — local machine)
+### 8c. Claude Code (CLI — MCP mode, local dev)
 
-Register MCP server and lifecycle hooks:
+For local development with Docker Postgres (no Railway needed):
 
 ```bash
 cd agent-coordinator
-make codex-mcp-setup    # Registers MCP server
+make claude-mcp-setup   # Uses localhost DSN by default
+```
+
+To use MCP with the Railway database (direct public TCP — exposes DB port):
+
+```bash
+cd agent-coordinator
+make claude-mcp-setup \
+  POSTGRES_DSN="postgresql://postgres:<password>@<public-host>:<port>/coordinator"
+```
+
+This registers the MCP server in `~/.claude.json` with the Railway DSN. Claude Code gets native `mcp__coordination__*` tools via stdio, but connects to the shared Railway database.
+
+### 8d. Claude Code (Web / Remote)
+
+Claude Code `--remote` sessions and web-based agents always use HTTP:
+
+```bash
+export COORDINATION_API_URL="https://your-app.railway.app"
+export COORDINATION_API_KEY="<claude-key>"
+export COORDINATION_ALLOWED_HOSTS="your-app.railway.app"
+```
+
+### 8e. Codex (CLI)
+
+For HTTP mode (recommended), set the same environment variables:
+
+```bash
+export COORDINATION_API_URL="https://your-app.railway.app"
+export COORDINATION_API_KEY="<codex-key>"
+export COORDINATION_ALLOWED_HOSTS="your-app.railway.app"
+```
+
+For MCP mode (local dev), register the MCP server and lifecycle hooks:
+
+```bash
+cd agent-coordinator
+make codex-mcp-setup    # Registers MCP server (localhost DSN by default)
 make hooks-setup        # Installs SessionStart/Stop/End hooks
 ```
 
-Lifecycle hooks handle session registration, status reporting, and lock cleanup automatically.
-
-### 8e. Codex (Cloud / Remote)
+### 8f. Codex (Cloud / Remote)
 
 Codex cloud exec sessions connect via HTTP. Set in the execution environment:
 

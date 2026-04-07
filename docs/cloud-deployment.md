@@ -5,13 +5,28 @@ Deploy the Agent Coordination API to Railway with ParadeDB Postgres.
 ## Architecture
 
 ```
-Railway Project
-├─ Service 1: ParadeDB Postgres
-│    └─ Private network: postgres://...@<service>.railway.internal:5432/coordinator
-└─ Service 2: Coordination API (FastAPI + uvicorn)
-     └─ DB_BACKEND=postgres, POSTGRES_DSN=<private network URL>
-     └─ Public HTTPS endpoint for cloud agents
+                     ┌──────────────────┐
+                     │  Railway Project  │
+                     │                  │
+                     │  ParadeDB        │
+                     │  (private net)   │
+                     │       ▲          │
+                     │       │ POSTGRES_DSN
+                     │       │          │
+                     │  Coordination    │
+                     │  API (FastAPI)   │
+                     │       ▲          │
+                     └───────┼──────────┘
+                             │ HTTPS + X-API-Key
+                ┌────────────┼────────────┐
+                │            │            │
+         Claude Code    Claude Code     Codex
+         (local/MCP)    (web/remote)   (cloud)
 ```
+
+- **Local agents** use MCP over stdio (no HTTP, no API key needed)
+- **Cloud agents** use HTTPS with `X-API-Key` header authentication
+- Both share the same Postgres state (locks, memory, work queue)
 
 ## Prerequisites
 
@@ -141,7 +156,102 @@ Run the setup-coordinator skill with `--mode web` to verify cloud connectivity:
 /setup-coordinator --mode web --http-url https://your-app.railway.app --api-key <key>
 ```
 
-## 8. Local Development
+## 8. Configure Agent Environments
+
+Once the coordinator is deployed and verified, configure each agent CLI to connect via HTTP.
+
+### Concepts
+
+- **Local agents** (running on your machine) connect via **MCP** over stdio — no server needed, configured by `make mcp-setup`
+- **Cloud/remote agents** connect via **HTTP** to the Railway public URL with API key auth
+- Agent identities are defined in `agent-coordinator/agents.yaml` and mapped to API keys server-side via `COORDINATION_API_KEY_IDENTITIES`
+
+### 8a. Generate API Keys
+
+Generate one key per agent (or per agent type):
+
+```bash
+# One key per cloud agent
+CLAUDE_KEY=$(openssl rand -hex 32)
+CODEX_KEY=$(openssl rand -hex 32)
+
+echo "Claude: $CLAUDE_KEY"
+echo "Codex:  $CODEX_KEY"
+```
+
+Set these on the Railway service as `COORDINATION_API_KEYS` (comma-separated) and `COORDINATION_API_KEY_IDENTITIES` (JSON map):
+
+```bash
+# Railway environment variables
+COORDINATION_API_KEYS=<claude-key>,<codex-key>
+COORDINATION_API_KEY_IDENTITIES={"<claude-key>":{"agent_id":"claude-remote","agent_type":"claude_code"},"<codex-key>":{"agent_id":"codex-remote","agent_type":"codex"}}
+```
+
+### 8b. Claude Code (CLI — local machine)
+
+For local Claude Code sessions that should coordinate with cloud agents, use MCP (no HTTP needed):
+
+```bash
+cd agent-coordinator
+make claude-mcp-setup   # Registers MCP server in ~/.claude.json
+```
+
+This gives the local CLI access to all coordination tools (`mcp__coordination__*`) via stdio transport.
+
+### 8c. Claude Code (Web / Remote)
+
+Claude Code `--remote` sessions and web-based agents connect via HTTP. Set these environment variables in the agent's runtime:
+
+```bash
+export COORDINATION_API_URL="https://your-app.railway.app"
+export COORDINATION_API_KEY="<claude-key>"
+export COORDINATION_ALLOWED_HOSTS="your-app.railway.app"
+```
+
+The coordination bridge auto-detects HTTP transport when these are set. Skills that use the coordinator (plan, implement, cleanup) will use HTTP instead of MCP.
+
+To verify connectivity:
+
+```bash
+python3 skills/coordination-bridge/scripts/check_coordinator.py \
+  --url "https://your-app.railway.app"
+```
+
+### 8d. Codex (CLI — local machine)
+
+Register MCP server and lifecycle hooks:
+
+```bash
+cd agent-coordinator
+make codex-mcp-setup    # Registers MCP server
+make hooks-setup        # Installs SessionStart/Stop/End hooks
+```
+
+Lifecycle hooks handle session registration, status reporting, and lock cleanup automatically.
+
+### 8e. Codex (Cloud / Remote)
+
+Codex cloud exec sessions connect via HTTP. Set in the execution environment:
+
+```bash
+export COORDINATION_API_URL="https://your-app.railway.app"
+export COORDINATION_API_KEY="<codex-key>"
+export COORDINATION_ALLOWED_HOSTS="your-app.railway.app"
+```
+
+### Environment Variable Reference
+
+| Variable | Where to set | Purpose |
+|----------|-------------|---------|
+| `COORDINATION_API_URL` | Agent runtime | Coordinator HTTP base URL |
+| `COORDINATION_API_KEY` | Agent runtime | API key for `X-API-Key` header |
+| `COORDINATION_ALLOWED_HOSTS` | Agent runtime | SSRF allowlist (hostname without scheme) |
+| `COORDINATION_API_KEYS` | Railway service | Comma-separated accepted keys |
+| `COORDINATION_API_KEY_IDENTITIES` | Railway service | JSON map: key → agent identity |
+
+**Fallback variable names** (checked in order): `COORDINATION_API_URL` → `COORDINATOR_HTTP_URL` → `AGENT_COORDINATOR_API_URL`. Use the primary name for new setups.
+
+## 9. Local Development
 
 For local development, use ParadeDB via docker-compose:
 
@@ -174,10 +284,16 @@ python3 agent-coordinator/run_mcp.py
 - Key identities JSON must be valid (use a JSON validator)
 - Check Railway logs for 401/403 errors
 
-### Health Check Returns 503
-- The `/health` endpoint checks database connectivity
-- Verify `POSTGRES_DSN` is correct and the database is accessible
+### Health Check Shows "degraded"
+- The `/health` endpoint always returns HTTP 200 (for Railway liveness) but reports DB status in the response body
+- `{"status": "degraded", "db": "unreachable"}` means the API is running but can't reach Postgres
+- Verify `POSTGRES_DSN` uses the correct internal hostname
 - Check Railway Postgres service health in the dashboard
+
+### Health Check Returns "service unavailable"
+- Railway's proxy can't reach the app — the container isn't listening on the expected port
+- The Dockerfile must bind to `0.0.0.0` (not `::`) — Railway's proxy uses IPv4
+- Verify `$PORT` is used: the CMD should include `--port ${PORT:-8081}`
 
 ### SSRF Blocking Cloud URL
 - Add Railway hostname to `COORDINATION_ALLOWED_HOSTS` environment variable

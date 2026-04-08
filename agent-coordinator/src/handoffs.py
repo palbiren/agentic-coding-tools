@@ -159,9 +159,12 @@ class HandoffService:
                     "p_relevant_files": json.dumps(relevant_files or []),
                 },
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("write_handoff RPC failed")
-            return WriteHandoffResult(success=False, error="database_unavailable")
+            return WriteHandoffResult(
+                success=False,
+                error=f"rpc_failed: {type(exc).__name__}: {exc}",
+            )
 
         write_result = WriteHandoffResult.from_dict(result)
 

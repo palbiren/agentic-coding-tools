@@ -696,7 +696,7 @@ def create_coordination_api() -> FastAPI:
         await authorize_operation(
             agent_id=agent_id,
             agent_type=agent_type,
-            operation="get_task",
+            operation="get_work",
             resource=request.task_id,
         )
 

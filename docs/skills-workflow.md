@@ -357,7 +357,7 @@ Updates OpenSpec spec files to reflect what was actually built. Used after imple
 
 ### `/openspec-beads-worktree`
 
-Coordinates OpenSpec proposals with Beads task tracking and isolated git worktree execution. Implements systematic spec-driven development with parallel agent coordination.
+Coordinates OpenSpec proposals with coordinator issue tracking and isolated git worktree execution. Implements systematic spec-driven development with parallel agent coordination. (Formerly used Beads — now uses coordinator's built-in issue tracker.)
 
 ### `/bug-scrub`
 

@@ -103,8 +103,12 @@
 - [x] 4.2 Update `check_coordinator.py` to report proxy mode status when MCP server is in HTTP transport
   **Dependencies**: 3.5
 
-- [ ] 4.3 Deploy updated `coordination_api.py` to Railway with new endpoints (deferred to `/cleanup-feature` or manual deploy after PR merge)
+- [x] 4.3 Deploy updated `coordination_api.py` to Railway with new endpoints (auto-deployed on PR #78 merge via Railway GitHub integration — railway.toml configures build from Dockerfile on main)
   **Dependencies**: 1.6
 
 - [x] 4.4 Update agent-coordinator CLAUDE.md with proxy mode documentation
   **Dependencies**: 3.5
+
+## Migration Notes
+
+All 31 tasks complete as of 2026-04-09. Task 4.3 (Railway deploy) completed automatically via Railway's GitHub integration when PR #78 merged to main. The Railway project `agent-coordinator` / service `agentic-coordinator` picks up `agent-coordinator/Dockerfile` builds on push to main.

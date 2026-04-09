@@ -132,7 +132,7 @@ class TestIssueCreate:
         """Default issue_type='task', priority=5, labels=[]."""
         mock_db.insert.return_value = _make_issue_row(title="Default task")
 
-        issue = await service.create(title="Default task")
+        await service.create(title="Default task")
 
         call_data = mock_db.insert.call_args[0][1]
         assert call_data["issue_type"] == "task"

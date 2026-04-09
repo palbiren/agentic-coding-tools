@@ -45,7 +45,9 @@ class TestHandoffService:
         result = await service.write(summary="Test summary")
 
         assert result.success is False
-        assert result.error == "database_unavailable"
+        assert result.error is not None
+        assert result.error.startswith("rpc_failed:")
+        assert "connection refused" in result.error
 
     @pytest.mark.asyncio
     async def test_write_handoff_missing_summary(self, mock_supabase, db_client):

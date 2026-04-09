@@ -176,6 +176,10 @@ define HOOKS_JSON
     "SessionStart": [
       {
         "type": "command",
+        "command": "python3 $(SCRIPTS_ABS)/print_coordinator_env.py"
+      },
+      {
+        "type": "command",
         "command": "python3 $(SCRIPTS_ABS)/register_agent.py"
       }
     ],
@@ -225,7 +229,7 @@ gemini-wrapper-install: ## Install Gemini status wrapper (symlink gemini-coord t
 	@echo ""
 	@echo "Ensure ~/.local/bin is in your PATH."
 	@echo "Set env vars for coordinator connection:"
-	@echo "  export COORDINATOR_URL=http://localhost:$(API_PORT)"
+	@echo "  export COORDINATION_API_URL=http://localhost:$(API_PORT)"
 	@echo "  export AGENT_ID=gemini-1"
 	@echo "  export AGENT_TYPE=gemini"
 

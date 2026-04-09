@@ -201,7 +201,7 @@ def test_hook_script_reads_loop_state(tmp_path: Path, monkeypatch: pytest.Monkey
     result = subprocess.run(
         [sys.executable, str(_HOOK_SCRIPT)],
         cwd=str(tmp_path),
-        env={**os.environ, "AGENT_ID": "agent-hook-test", "COORDINATOR_URL": "http://127.0.0.1:1"},
+        env={**os.environ, "AGENT_ID": "agent-hook-test", "COORDINATION_API_URL": "http://127.0.0.1:1"},
         capture_output=True,
         timeout=10,
     )
@@ -275,7 +275,7 @@ def test_hook_script_exits_zero_on_timeout(tmp_path: Path) -> None:
             **os.environ,
             "AGENT_ID": "agent-timeout",
             # Point to a port that is not listening to trigger connection error
-            "COORDINATOR_URL": "http://127.0.0.1:1",
+            "COORDINATION_API_URL": "http://127.0.0.1:1",
         },
         capture_output=True,
         timeout=15,

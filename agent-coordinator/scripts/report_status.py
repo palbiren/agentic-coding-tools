@@ -12,7 +12,7 @@ Usage:
 Environment variables:
     AGENT_ID: Agent identifier
     CHANGE_ID: Fallback change_id if loop-state.json is missing
-    COORDINATOR_URL: Coordinator HTTP API URL (default http://localhost:8081)
+    COORDINATION_API_URL: Coordinator HTTP API URL (default http://localhost:8081)
     COORDINATION_API_KEY: API key for auth header
 """
 
@@ -73,7 +73,7 @@ def main() -> None:
     is_subagent = "--subagent" in sys.argv
 
     agent_id = os.environ.get("AGENT_ID", "unknown")
-    coordinator_url = os.environ.get("COORDINATOR_URL", "http://localhost:8081")
+    coordinator_url = os.environ.get("COORDINATION_API_URL", "http://localhost:8081")
     api_key = os.environ.get("COORDINATION_API_KEY", "")
 
     # Read loop state

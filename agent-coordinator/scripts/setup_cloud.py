@@ -99,7 +99,6 @@ def write_env_file(domain: str, keys: dict[str, str], output: Path) -> None:
         "# -- Shared coordinator settings --",
         f'export COORDINATION_API_URL="{url}"',
         f'export COORDINATION_ALLOWED_HOSTS="{domain}"',
-        f'export COORDINATOR_URL="{url}"',
         "",
         "# -- Default key (Claude Code local) --",
     ]

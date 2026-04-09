@@ -13,7 +13,7 @@
 #   echo "prompt" | ./gemini_wrapper.sh
 #
 # Environment:
-#   COORDINATOR_URL  — Coordinator HTTP API (default: http://localhost:8081)
+#   COORDINATION_API_URL — Coordinator HTTP API (default: http://localhost:8081)
 #   AGENT_ID         — Agent identifier (default: gemini-1)
 #   AGENT_TYPE       — Agent type (default: gemini)
 #   CHANGE_ID        — OpenSpec change-id (optional, for status context)
@@ -32,7 +32,7 @@ while [ -L "$SOURCE" ]; do
     [[ "$SOURCE" != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 SCRIPT_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
-COORDINATOR_URL="${COORDINATOR_URL:-http://localhost:8081}"
+COORDINATION_API_URL="${COORDINATION_API_URL:-http://localhost:8081}"
 AGENT_ID="${AGENT_ID:-gemini-1}"
 AGENT_TYPE="${AGENT_TYPE:-gemini}"
 
@@ -57,7 +57,7 @@ _report_status() {
     fi
 
     # Fallback: direct HTTP POST
-    curl -sf -X POST "${COORDINATOR_URL}/status/report" \
+    curl -sf -X POST "${COORDINATION_API_URL}/status/report" \
         -H "Content-Type: application/json" \
         -d "{
             \"agent_id\": \"${AGENT_ID}\",

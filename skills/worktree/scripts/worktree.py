@@ -119,6 +119,86 @@ def default_branch(
     return base
 
 
+def resolve_branch(
+    change_id: str,
+    agent_id: str | None = None,
+    prefix: str | None = None,
+    explicit: str | None = None,
+    env: dict[str, str] | None = None,
+) -> str:
+    """Resolve the branch name a caller should use, applying override precedence.
+
+    Resolution proceeds in two steps:
+
+    1. **Base resolution** (the parent feature/session branch):
+       - ``explicit`` — if passed, used verbatim as the final branch and returned
+         immediately. This preserves backward compatibility with callers like
+         ``openspec-beads-worktree`` that pre-compose their own fully-qualified
+         task branches and pass them via ``--branch``.
+       - ``OPENSPEC_BRANCH_OVERRIDE`` env var — operator-mandated base branch
+         (e.g. Claude cloud harness sets ``claude/fix-branch-mismatch-9P9o1``).
+         When set, it replaces the ``openspec/<change-id>`` default as the base.
+       - ``default_branch`` namespace — ``<prefix>/<change-id>`` or
+         ``openspec/<change-id>``.
+
+    2. **Agent suffix** (for parallel disambiguation):
+       When ``agent_id`` is provided, ``--<agent-id>`` is appended to the base.
+       This ensures parallel work-package agents get distinct branches:
+
+           claude/fix-branch-mismatch-9P9o1--wp-backend
+           claude/fix-branch-mismatch-9P9o1--wp-frontend
+           claude/fix-branch-mismatch-9P9o1--cleanup
+
+       These then merge back into the base (parent) branch via
+       ``merge_worktrees.py``. The ``--`` separator (not ``/``) is required
+       because git cannot have both ``refs/heads/a/b`` and ``refs/heads/a/b/c``
+       simultaneously — using ``/`` would make the base branch conflict with
+       any agent sub-branches.
+
+    ``explicit`` is treated as a full override that bypasses agent-suffix
+    composition entirely, because the caller has already made an explicit
+    naming choice.
+
+    Passing empty/whitespace strings is treated as "not set" and falls through
+    to the next layer.
+    """
+    # Explicit caller-composed branch wins verbatim (skips agent suffix too)
+    if explicit:
+        return explicit
+
+    environ = env if env is not None else os.environ
+    override = (environ.get("OPENSPEC_BRANCH_OVERRIDE") or "").strip()
+
+    # Determine the base branch (the parent feature/session branch)
+    if override:
+        base = override
+    elif prefix:
+        base = f"{prefix}/{change_id}"
+    else:
+        base = f"openspec/{change_id}"
+
+    # Append agent-id suffix for parallel disambiguation (same convention as
+    # default_branch — see module docstring for the git ref storage rationale).
+    if agent_id:
+        return f"{base}--{agent_id}"
+    return base
+
+
+def resolve_parent_branch(
+    change_id: str,
+    prefix: str | None = None,
+    env: dict[str, str] | None = None,
+) -> str:
+    """Resolve the parent (feature/session) branch WITHOUT an agent suffix.
+
+    This is the branch that agent-scoped sub-branches merge back into. Used by
+    ``merge_worktrees.py`` and by ``cleanup-feature`` when it needs to refer to
+    the feature branch (for ``gh pr merge``, ``git branch -d``, etc.) as
+    distinct from its own ``--cleanup`` agent worktree branch.
+    """
+    return resolve_branch(change_id, agent_id=None, prefix=prefix, env=env)
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -205,13 +285,28 @@ def parse_duration_hours(duration: str) -> float:
 # ---------------------------------------------------------------------------
 
 def cmd_setup(args: argparse.Namespace) -> int:
-    """Create a worktree for the given change-id."""
+    """Create a worktree for the given change-id.
+
+    Branch resolution precedence (highest to lowest):
+      1. ``--branch`` CLI flag (explicit caller override)
+      2. ``OPENSPEC_BRANCH_OVERRIDE`` environment variable (operator mandate,
+         e.g. when the Claude cloud harness injects a specific branch name)
+      3. ``default_branch(change_id, agent_id, prefix)`` — the computed default
+
+    The env var lets operator-mandated branches flow through to every caller of
+    ``worktree.py setup`` without each skill needing to know about the override.
+    """
     cwd = os.getcwd()
     main_repo = resolve_main_repo(cwd)
     change_id: str = args.change_id
     agent_id: str | None = getattr(args, "agent_id", None)
     prefix: str | None = args.prefix
-    branch = args.branch or default_branch(change_id, agent_id, prefix)
+
+    branch = resolve_branch(change_id, agent_id, prefix, explicit=args.branch)
+    if not args.branch and branch != default_branch(change_id, agent_id, prefix):
+        # Emit diagnostic so operators can confirm the env override took effect
+        print("BRANCH_OVERRIDE_SOURCE=env", file=sys.stderr)
+        print(f"BRANCH_OVERRIDE_VALUE={branch}", file=sys.stderr)
 
     wt_path = worktree_path(main_repo, change_id, agent_id, prefix)
 
@@ -299,6 +394,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
             print("No bootstrap script found, skipping", file=sys.stderr)
 
     print(f"WORKTREE_PATH={wt_path}")
+    print(f"WORKTREE_BRANCH={branch}")
     print(f"BOOTSTRAPPED={'true' if bootstrapped else 'false'}")
     return 0
 
@@ -506,6 +602,55 @@ def cmd_unpin(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_resolve_branch(args: argparse.Namespace) -> int:
+    """Print the resolved branch for a change-id without creating a worktree.
+
+    Branch resolution precedence (same as ``cmd_setup``):
+      1. ``--branch`` explicit override
+      2. Registry entry for (change_id, agent_id) if one exists — preferred,
+         because this reflects what was ACTUALLY used at setup time
+      3. ``OPENSPEC_BRANCH_OVERRIDE`` env var composed with ``--agent-id`` suffix
+      4. ``default_branch(change_id, agent_id, prefix)``
+
+    With ``--parent``, the agent suffix is stripped and the parent (feature /
+    session) branch is returned instead. This is what ``cleanup-feature`` uses
+    to target ``gh pr merge`` and ``git branch -d`` at the feature branch
+    rather than its own ``--cleanup`` worktree sub-branch.
+
+    Shell callers should ``eval`` the output to get ``BRANCH=<value>`` exported.
+    """
+    cwd = os.getcwd()
+    main_repo = resolve_main_repo(cwd)
+    change_id: str = args.change_id
+    agent_id: str | None = getattr(args, "agent_id", None)
+    prefix: str | None = args.prefix
+    want_parent: bool = getattr(args, "parent", False)
+
+    # --parent means "ignore agent_id, give me the feature/session branch"
+    lookup_agent_id: str | None = None if want_parent else agent_id
+
+    # Registry wins when present — it records the truth of what setup used.
+    branch: str | None = None
+    source = "default"
+    if args.branch:
+        branch = args.branch
+        source = "explicit"
+    else:
+        registry = load_registry(main_repo)
+        entry = find_entry(registry, change_id, lookup_agent_id)
+        if entry and entry.get("branch"):
+            branch = entry["branch"]
+            source = "registry"
+        else:
+            # Fall back to the same precedence cmd_setup would apply
+            branch = resolve_branch(change_id, lookup_agent_id, prefix)
+            source = "env" if os.environ.get("OPENSPEC_BRANCH_OVERRIDE", "").strip() else "default"
+
+    print(f"BRANCH={branch}")
+    print(f"BRANCH_SOURCE={source}")
+    return 0
+
+
 def cmd_gc(args: argparse.Namespace) -> int:
     """Remove stale worktrees based on heartbeat age and pin status."""
     cwd = os.getcwd()
@@ -601,7 +746,13 @@ def main() -> int:
     setup_parser = subparsers.add_parser("setup", help="Create a worktree")
     setup_parser.add_argument("change_id", help="Change ID or identifier")
     _add_agent_id_flag(setup_parser)
-    setup_parser.add_argument("--branch", help="Branch name (default: openspec/<change-id>)")
+    setup_parser.add_argument(
+        "--branch",
+        help=(
+            "Branch name override. Precedence: --branch > OPENSPEC_BRANCH_OVERRIDE "
+            "env var > openspec/<change-id> default."
+        ),
+    )
     setup_parser.add_argument("--prefix", help="Path prefix (e.g., fix-scrub)")
     setup_parser.add_argument(
         "--no-bootstrap", action="store_true",
@@ -625,6 +776,22 @@ def main() -> int:
     # detect
     detect_parser = subparsers.add_parser("detect", help="Detect worktree context")
     detect_parser.set_defaults(func=cmd_detect)
+
+    # resolve-branch
+    resolve_parser = subparsers.add_parser(
+        "resolve-branch",
+        help="Print resolved branch for a change-id (honors registry + env override)",
+    )
+    resolve_parser.add_argument("change_id", help="Change ID or identifier")
+    _add_agent_id_flag(resolve_parser)
+    resolve_parser.add_argument("--branch", help="Explicit branch name (bypasses resolution)")
+    resolve_parser.add_argument("--prefix", help="Path prefix (e.g., fix-scrub)")
+    resolve_parser.add_argument(
+        "--parent",
+        action="store_true",
+        help="Resolve the parent (feature/session) branch, stripping any --agent-id suffix",
+    )
+    resolve_parser.set_defaults(func=cmd_resolve_branch)
 
     # heartbeat
     hb_parser = subparsers.add_parser("heartbeat", help="Update heartbeat timestamp")

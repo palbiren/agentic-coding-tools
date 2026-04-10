@@ -77,8 +77,22 @@ openspec show $CHANGE_ID
 **Launcher Invariant**: The shared checkout is read-only. Perform all cleanup operations in a worktree:
 
 ```bash
-python3 "<skill-base-dir>/../worktree/scripts/worktree.py" setup "$CHANGE_ID" --agent-id cleanup
-cd $WORKTREE_PATH
+eval "$(python3 "<skill-base-dir>/../worktree/scripts/worktree.py" setup "$CHANGE_ID" --agent-id cleanup)"
+cd "$WORKTREE_PATH"
+
+# The cleanup worktree is on its OWN scratch branch (with the --cleanup suffix),
+# so that cleanup operations don't collide with a still-running implementation
+# worktree. We need two distinct branch variables:
+#
+#   CLEANUP_BRANCH — this worktree's own branch (openspec/<change-id>--cleanup
+#                    by default, or <override>--cleanup when OPENSPEC_BRANCH_OVERRIDE
+#                    is set). Used for teardown.
+#   FEATURE_BRANCH — the PARENT feature branch being merged/deleted. This is
+#                    the branch implement-feature pushed and opened a PR against.
+#                    Used for gh pr merge, git branch -d, and lock cleanup.
+CLEANUP_BRANCH="$WORKTREE_BRANCH"
+eval "$(python3 "<skill-base-dir>/../worktree/scripts/worktree.py" resolve-branch "$CHANGE_ID" --parent)"
+FEATURE_BRANCH="$BRANCH"
 ```
 
 ### 2. Verify PR is Approved
@@ -87,8 +101,8 @@ cd $WORKTREE_PATH
 # Check PR status
 gh pr status
 
-# Or check specific PR
-gh pr view openspec/<change-id>
+# Or check specific PR (use the resolved FEATURE_BRANCH, not a hardcoded prefix)
+gh pr view "$FEATURE_BRANCH"
 ```
 
 Confirm PR is approved and CI is passing before proceeding.
@@ -185,7 +199,8 @@ python3 skills/merge-pull-requests/scripts/merge_pr.py merge <pr_number> \
   --validation-report openspec/changes/<change-id>/validation-report.md
 
 # Direct gh merge (only if gate already passed in step 2.5a)
-gh pr merge openspec/<change-id> --rebase --delete-branch
+# Uses the resolved FEATURE_BRANCH, which honors OPENSPEC_BRANCH_OVERRIDE
+gh pr merge "$FEATURE_BRANCH" --rebase --delete-branch
 ```
 
 **Explicit user override** (only when user explicitly requests):
@@ -359,7 +374,8 @@ openspec validate --strict
 
 ```bash
 # Delete local feature branch (if not already deleted)
-git branch -d openspec/<change-id> 2>/dev/null || true
+# Uses the resolved FEATURE_BRANCH to honor OPENSPEC_BRANCH_OVERRIDE
+git branch -d "$FEATURE_BRANCH" 2>/dev/null || true
 
 # Prune remote tracking branches
 git fetch --prune
@@ -367,7 +383,7 @@ git fetch --prune
 
 If `CAN_LOCK=true`, perform best-effort lock cleanup for files touched on the feature branch:
 
-- Compare `main...openspec/<change-id>` changed files
+- Compare `main...$FEATURE_BRANCH` changed files
 - Attempt release for each lock owned by this agent/session
 - Treat release failures as warnings (do not block cleanup)
 

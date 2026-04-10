@@ -2,16 +2,18 @@
 """Merge or close pull requests with pre-merge validation.
 
 Actions:
-  merge        - Merge a single PR (squash/merge/rebase)
-  close        - Close a single PR with a comment
-  batch-close  - Close multiple obsolete PRs with explanatory comments
-  rerun-checks - Re-run failed CI workflow runs for a PR
+  merge           - Merge a single PR (squash/merge/rebase)
+  close           - Close a single PR with a comment
+  batch-close     - Close multiple obsolete PRs with explanatory comments
+  rerun-checks    - Re-run failed CI workflow runs for a PR (transient failures)
+  refresh-branch  - Merge base branch into PR to get fresh CI (stale merge commit)
 
 Usage:
   python merge_pr.py merge <pr_number> [--strategy squash|merge|rebase] [--validation-report PATH] [--force] [--dry-run]
   python merge_pr.py close <pr_number> --reason <text> [--dry-run]
   python merge_pr.py batch-close <pr_numbers_comma_sep> --reason <text> [--dry-run]
   python merge_pr.py rerun-checks <pr_number> [--dry-run]
+  python merge_pr.py refresh-branch <pr_number> [--dry-run]
 
 Output: JSON result to stdout.
 """
@@ -617,6 +619,94 @@ def rerun_failed_checks(pr_number: int, dry_run: bool = False) -> dict:
     }
 
 
+def refresh_branch(pr_number: int, dry_run: bool = False) -> dict:
+    """Merge base branch into PR branch to get a fresh merge commit.
+
+    Uses GitHub's Update Branch API (PUT /repos/{owner}/{repo}/pulls/{n}/update-branch).
+    This triggers fresh CI against the current base without requiring a local rebase.
+
+    Use this instead of ``rerun-checks`` when CI failures are caused by stale
+    base-branch code rather than transient issues. ``rerun-checks`` replays
+    the workflow against the same merge commit snapshot, so it will never pick
+    up fixes that landed on main after the PR was last pushed.
+    """
+    try:
+        raw = run_gh([
+            "pr", "view", str(pr_number),
+            "--json", "headRefOid,baseRefName",
+        ], timeout=GH_TIMEOUT)
+    except RuntimeError as e:
+        return {
+            "action": "refresh-branch",
+            "success": False,
+            "pr_number": pr_number,
+            "error": f"Could not fetch PR: {e}",
+        }
+
+    pr_data = json.loads(raw)
+    head_sha = pr_data.get("headRefOid", "")
+    base_ref = pr_data.get("baseRefName", "main")
+
+    if not head_sha:
+        return {
+            "action": "refresh-branch",
+            "success": False,
+            "pr_number": pr_number,
+            "error": "Could not determine PR head SHA",
+        }
+
+    if dry_run:
+        return {
+            "action": "refresh-branch",
+            "success": True,
+            "pr_number": pr_number,
+            "dry_run": True,
+            "message": (
+                f"Would merge {base_ref} into PR #{pr_number} "
+                f"(head: {head_sha[:8]})"
+            ),
+        }
+
+    # Call the GitHub Update Branch API
+    result = run_gh_unchecked(
+        [
+            "api", f"repos/:owner/:repo/pulls/{pr_number}/update-branch",
+            "-X", "PUT",
+            "-f", f"expected_head_sha={head_sha}",
+        ],
+        timeout=GH_TIMEOUT,
+    )
+
+    if result.returncode != 0:
+        error = result.stderr.strip()
+        # Common case: branch is already up to date
+        if "already up-to-date" in error.lower() or "not behind" in error.lower():
+            return {
+                "action": "refresh-branch",
+                "success": True,
+                "pr_number": pr_number,
+                "was_stale": False,
+                "message": f"Branch already up to date with {base_ref}",
+            }
+        return {
+            "action": "refresh-branch",
+            "success": False,
+            "pr_number": pr_number,
+            "reason": error,
+        }
+
+    return {
+        "action": "refresh-branch",
+        "success": True,
+        "pr_number": pr_number,
+        "was_stale": True,
+        "message": (
+            f"Merged {base_ref} into PR branch — "
+            "fresh CI will trigger automatically"
+        ),
+    }
+
+
 def close_pr(pr_number: int, reason: str,
              dry_run: bool = False) -> dict:
     if dry_run:
@@ -750,9 +840,20 @@ def main():
     batch_parser.add_argument("--dry-run", action="store_true")
 
     # rerun-checks subcommand
-    rerun_parser = subparsers.add_parser("rerun-checks", help="Re-run failed CI checks")
+    rerun_parser = subparsers.add_parser(
+        "rerun-checks",
+        help="Re-run failed CI checks (transient failures only)",
+    )
     rerun_parser.add_argument("pr_number", type=int, help="PR number")
     rerun_parser.add_argument("--dry-run", action="store_true")
+
+    # refresh-branch subcommand
+    refresh_parser = subparsers.add_parser(
+        "refresh-branch",
+        help="Merge base branch into PR for fresh CI (stale merge commit)",
+    )
+    refresh_parser.add_argument("pr_number", type=int, help="PR number")
+    refresh_parser.add_argument("--dry-run", action="store_true")
 
     args = parser.parse_args()
     check_gh()
@@ -771,6 +872,8 @@ def main():
         result = batch_close(pr_numbers, args.reason, args.dry_run)
     elif args.action == "rerun-checks":
         result = rerun_failed_checks(args.pr_number, args.dry_run)
+    elif args.action == "refresh-branch":
+        result = refresh_branch(args.pr_number, args.dry_run)
     else:
         parser.print_help()
         sys.exit(1)

@@ -312,6 +312,55 @@ def _check_additions_already_present(
     }
 
 
+def _get_ci_merge_base_staleness(
+    pr_number: int, base_branch: str,
+) -> dict:
+    """Check whether the PR's merge base is behind the current base HEAD.
+
+    When ``ci_merge_base_stale`` is True, ``gh run rerun`` will NOT pick up
+    base-branch fixes because it replays against the same merge commit.
+    Use ``merge_pr.py refresh-branch`` or a local rebase instead.
+    """
+    try:
+        # Get the PR's merge base (the common ancestor of PR head + base)
+        raw = run_gh([
+            "pr", "view", str(pr_number),
+            "--json", "headRefOid,baseRefOid",
+        ], timeout=GH_TIMEOUT)
+        pr_data = json.loads(raw)
+        base_oid = pr_data.get("baseRefOid", "")
+
+        # Get the current tip of the remote base branch
+        head_result = run_cmd(
+            ["git", "rev-parse", f"origin/{base_branch}"],
+            timeout=10,
+        )
+        current_base_head = head_result.strip()
+
+        stale = bool(base_oid and current_base_head and base_oid != current_base_head)
+        info: dict = {
+            "ci_merge_base_stale": stale,
+            "pr_base_oid": base_oid[:12] if base_oid else "",
+            "current_base_head": current_base_head[:12] if current_base_head else "",
+        }
+        if stale:
+            # Count how many commits the PR's base is behind
+            try:
+                count_result = run_cmd(
+                    [
+                        "git", "rev-list", "--count",
+                        f"{base_oid}..origin/{base_branch}",
+                    ],
+                    timeout=10,
+                )
+                info["commits_behind"] = int(count_result.strip())
+            except (RuntimeError, ValueError):
+                pass
+        return info
+    except (RuntimeError, json.JSONDecodeError):
+        return {"ci_merge_base_stale": None}
+
+
 def check_staleness(pr_number: int, origin: str = "other") -> dict:
     pr_info = get_pr_info(pr_number)
     created_at = pr_info.get("createdAt", "")
@@ -329,6 +378,11 @@ def check_staleness(pr_number: int, origin: str = "other") -> dict:
     if fetch_warning:
         warnings.append(fetch_warning)
 
+    # Check whether the PR's merge base is behind current base HEAD.
+    # When ci_merge_base_stale is true, `gh run rerun` won't pick up
+    # base-branch fixes — use `refresh-branch` or rebase instead.
+    ci_info = _get_ci_merge_base_staleness(pr_number, base_branch)
+
     result = {
         "pr_number": pr_number,
         "created_at": created_at,
@@ -338,6 +392,7 @@ def check_staleness(pr_number: int, origin: str = "other") -> dict:
         "main_changes_since": len(main_files),
         "overlapping_files": overlapping,
         "overlap_count": len(overlapping),
+        **ci_info,
     }
     if warnings:
         result["warnings"] = warnings

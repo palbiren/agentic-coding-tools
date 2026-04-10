@@ -144,6 +144,28 @@ Staleness levels:
 - **Stale**: Overlapping file changes — review needed before merge
 - **Obsolete**: Fix no longer needed — recommend closing
 
+### 5b. Classify CI Failures
+
+For PRs with failing CI, determine the failure class before choosing a fix strategy:
+
+| Failure Class | Symptoms | Fix Strategy |
+|---------------|----------|-------------|
+| **Transient** | Flaky test, network timeout, OOM, runner issue | `rerun-checks` — same code should pass on retry |
+| **PR-specific** | Lint/test error in files the PR modified | Fix the code, commit, push (triggers fresh CI) |
+| **Stale merge** | Error in files the PR did NOT modify; same error across multiple unrelated PRs | `refresh-branch` or rebase onto main |
+
+**How to detect stale-merge failures**: If the same CI check fails identically on 3+ unrelated PRs, and the failing files are not in those PRs' change sets, it is almost certainly a stale merge commit. `gh run rerun` will NOT fix this — it replays the workflow against the same merge commit snapshot, not a fresh one.
+
+To refresh the merge commit without a local rebase:
+
+```bash
+python3 <agent-skills-dir>/merge-pull-requests/scripts/merge_pr.py refresh-branch <pr_number>
+```
+
+This calls the GitHub Update Branch API to merge the current base into the PR branch, producing a new merge commit that triggers fresh CI automatically. For PRs that will be squash-merged, the merge commit is discarded at merge time.
+
+The `check_staleness.py` script includes a `ci_merge_base_stale` field that compares the PR's merge base with the current base branch HEAD. When `ci_merge_base_stale` is `true` and CI is failing, prefer `refresh-branch` over `rerun-checks`.
+
 ### 6. Identify Conflicting PR Pairs
 
 After running staleness checks for all PRs, compare their file lists to identify PR pairs that modify the same files. Warn the operator before the interactive review:
@@ -265,6 +287,28 @@ Merge-Time Validation (OpenSpec: <change-id>):
 
 If any phase **fails**, flag the PR with a warning but do not hard-block — the operator decides whether to merge, fix, or skip. Critical failures (deploy crash, smoke test failures) should be highlighted prominently.
 
+### 9.6. Check Holdout Gate (OpenSpec PRs Only)
+
+If `openspec/changes/<change-id>/rework-report.json` exists, check whether holdout scenario failures block the merge:
+
+```bash
+REWORK_REPORT="openspec/changes/$CHANGE_ID/rework-report.json"
+if [[ -f "$REWORK_REPORT" ]]; then
+  HAS_BLOCKING=$(python3 -c "
+import json
+data = json.load(open('$REWORK_REPORT'))
+print(data.get('summary', {}).get('has_blocking_holdout', False))
+")
+  if [[ "$HAS_BLOCKING" == "True" ]]; then
+    echo "WARNING: Holdout scenario failures detected in rework report"
+    echo "The rework report indicates blocking holdout failures."
+    echo "Consider running /iterate-on-implementation and /validate-feature before merge."
+  fi
+fi
+```
+
+Holdout gate status is presented as a **warning** during the interactive review — it does not auto-block. The operator decides whether the holdout failures are acceptable for this merge or need resolution first.
+
 ### 10. Determine Merge Order
 
 Before the interactive review, sort remaining PRs for optimal merge order:
@@ -346,11 +390,17 @@ Run /cleanup-feature <change-id> to archive the OpenSpec proposal.
 
 #### Re-run Failed CI Checks
 
+> **Important**: `rerun-checks` replays the workflow against the **same merge commit**. It does NOT pick up changes to the base branch. Use this only for **transient** failures (flaky tests, timeouts, OOM). For failures caused by stale base-branch code, use `refresh-branch` or rebase instead. See Step 5b for the diagnostic flowchart.
+
 ```bash
+# Transient failure — replay same merge commit:
 python3 <agent-skills-dir>/merge-pull-requests/scripts/merge_pr.py rerun-checks <pr_number>
+
+# Stale merge commit — merge current base into PR branch for fresh CI:
+python3 <agent-skills-dir>/merge-pull-requests/scripts/merge_pr.py refresh-branch <pr_number>
 ```
 
-This finds failed workflow runs on the PR's branch and re-runs only the failed jobs. After re-running, offer to **Wait** for the checks to complete.
+`rerun-checks` finds failed workflow runs on the PR's branch and re-runs only the failed jobs. `refresh-branch` calls the GitHub Update Branch API to merge the base branch into the PR branch, producing a new merge commit. Both trigger CI; after either, offer to **Wait** for the checks to complete.
 
 #### Re-check Staleness After Merge
 

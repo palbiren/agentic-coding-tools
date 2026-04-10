@@ -243,3 +243,6 @@ docs/security-review/*.json
 # Skill/review artifacts (generated output, not source)
 artifacts/
 .status-cache.json
+
+# Legacy openspec init output (replaced by .agents/skills/ via skills/install.sh)
+.agent/

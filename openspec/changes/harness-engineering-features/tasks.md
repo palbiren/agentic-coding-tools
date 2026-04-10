@@ -31,7 +31,7 @@
   **Dependencies**: None
 
 - [ ] 2.2 Add evaluator agent profile — database migration seeding evaluator profile, work queue agent_type preference logic
-  **Files**: `agent-coordinator/supabase/migrations/017_evaluator_profile.sql`, `agent-coordinator/src/work_queue.py`, `agent-coordinator/src/profiles.py`
+  **Files**: `agent-coordinator/database/migrations/017_evaluator_profile.sql`, `agent-coordinator/src/work_queue.py`, `agent-coordinator/src/profiles.py`
   **Dependencies**: 2.1
 
 - [ ] 2.3 Write tests for session scope enforcement — verify scope grant on task claim, out-of-scope detection, warning format

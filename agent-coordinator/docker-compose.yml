@@ -14,7 +14,7 @@ services:
       POSTGRES_DB: postgres
     volumes:
       - postgres-data:/var/lib/postgresql
-      - ./supabase/migrations:/docker-entrypoint-initdb.d/
+      - ./database/migrations:/docker-entrypoint-initdb.d/
     healthcheck:
       test: pg_isready -U postgres
       interval: 5s
@@ -197,7 +197,7 @@ volumes:
 # - Host port is configurable to avoid collisions:
 #   - AGENT_COORDINATOR_DB_PORT (default: 54322)
 # - PostgreSQL is available at localhost:${AGENT_COORDINATOR_DB_PORT:-54322}
-# - Migrations in ./supabase/migrations/ are applied automatically on first start
+# - Migrations in ./database/migrations/ are applied automatically on first start
 #
 # For local development, set:
 #   DB_BACKEND=postgres

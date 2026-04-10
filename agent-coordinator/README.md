@@ -26,7 +26,7 @@ Multi-agent coordination system for AI coding assistants. Enables Claude Code, C
 1. Create a free project at [supabase.com](https://supabase.com)
 2. Go to Project Settings > Database > Connection string
 3. Copy your project URL and service role key
-4. Run the migrations via SQL Editor (paste each file in `supabase/migrations/` in order)
+4. Run the migrations via SQL Editor (paste each file in `database/migrations/` in order)
 
 #### Option B: Supabase CLI (Local Development)
 
@@ -285,7 +285,7 @@ agent-coordinator/
 ├── cedar/
 │   ├── schema.cedarschema     # Cedar entity type definitions
 │   └── default_policies.cedar # Default authorization policies
-├── supabase/
+├── database/
 │   └── migrations/
 │       ├── 001_core_schema.sql          # Locks, work queue, sessions
 │       ├── 002_handoff_documents.sql    # Session handoffs

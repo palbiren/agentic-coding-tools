@@ -230,7 +230,7 @@ def merge_train(train: Train) -> None:
 PATH_TO_NAMESPACE_RULES: list[tuple[str, str]] = [
     ("contracts/**",                      "contract:"),
     ("**/migrations/**",                  "db:migration-slot"),
-    ("supabase/migrations/**",            "db:migration-slot"),
+    ("database/migrations/**",            "db:migration-slot"),
     ("**/schema*.py",                     "db:schema:"),
     ("**/models/**",                      "db:schema:"),
     ("**/models.py",                      "db:schema:"),

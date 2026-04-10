@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-MIGRATIONS_DIR = Path(__file__).parent.parent / "supabase" / "migrations"
+MIGRATIONS_DIR = Path(__file__).parent.parent / "database" / "migrations"
 
 
 # =============================================================================

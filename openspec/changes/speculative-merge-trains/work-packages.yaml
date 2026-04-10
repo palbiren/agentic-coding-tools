@@ -304,7 +304,7 @@ packages:
         - "agent-coordinator/src/refresh_rpc_client.py"
         - "agent-coordinator/tests/integration/**"
         - "agent-coordinator/tests/test_refresh_rpc_client.py"
-        - "agent-coordinator/supabase/migrations/**"
+        - "agent-coordinator/database/migrations/**"
         - "docs/parallel-agentic-development.md"
         - "docs/lessons-learned.md"
       read_allow:

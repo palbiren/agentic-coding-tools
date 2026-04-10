@@ -1,11 +1,10 @@
 """Automatic schema migration runner for the coordinator database.
 
-On startup, ensures all SQL migrations in ``supabase/migrations/`` have been
+On startup, ensures all SQL migrations in ``database/migrations/`` have been
 applied.  A ``schema_migrations`` tracking table records which files have
 already run, so only *new* migrations execute.
 
-Only the ``postgres`` (asyncpg) backend is supported — the ``supabase``
-backend delegates schema management to the Supabase platform.
+Only the ``postgres`` (asyncpg) backend is supported.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 _MIGRATION_RE = re.compile(r"^(\d+)_.+\.sql$")
 
 # Relative to the agent-coordinator package root
-_DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "supabase" / "migrations"
+_DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "database" / "migrations"
 
 _BOOTSTRAP_SQL = """\
 CREATE TABLE IF NOT EXISTS schema_migrations (

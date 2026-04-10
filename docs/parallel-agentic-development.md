@@ -63,7 +63,7 @@ Cloud Agents (Claude Web, Codex Cloud)
 **Implementation**:
 - MCP server: [`agent-coordinator/src/coordination_mcp.py`](../agent-coordinator/src/coordination_mcp.py) (40.8KB, 19 tools + 7 resources)
 - HTTP API: [`agent-coordinator/src/coordination_api.py`](../agent-coordinator/src/coordination_api.py) (29.9KB, FastAPI endpoints)
-- Database: [`agent-coordinator/supabase/migrations/`](../agent-coordinator/supabase/migrations/) (12 migrations)
+- Database: [`agent-coordinator/database/migrations/`](../agent-coordinator/database/migrations/) (12 migrations)
 
 ### Services
 

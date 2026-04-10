@@ -211,12 +211,12 @@ class TestFilePathToNamespaces:
 
     def test_migration_path(self) -> None:
         result = file_path_to_namespaces(
-            "agent-coordinator/supabase/migrations/20240101_init.sql"
+            "agent-coordinator/database/migrations/20240101_init.sql"
         )
         assert "db:migration-slot" in result
 
-    def test_supabase_migration(self) -> None:
-        assert file_path_to_namespaces("supabase/migrations/0042.sql") == {
+    def test_database_migration(self) -> None:
+        assert file_path_to_namespaces("database/migrations/0042.sql") == {
             "db:migration-slot"
         }
 

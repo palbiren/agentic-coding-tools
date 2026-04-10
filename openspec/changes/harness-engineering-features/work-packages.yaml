@@ -45,7 +45,7 @@ packages:
       read_allow:
         - "**"
       deny:
-        - "agent-coordinator/supabase/**"
+        - "agent-coordinator/database/**"
     worktree:
       name: harness-engineering-features
       mode: isolated
@@ -111,7 +111,7 @@ packages:
         - "agent-coordinator/src/work_queue.py"
         - "agent-coordinator/src/guardrails.py"
         - "agent-coordinator/src/session_grants.py"
-        - "agent-coordinator/supabase/migrations/**"
+        - "agent-coordinator/database/migrations/**"
         - "agent-coordinator/tests/**"
       read_allow:
         - "agent-coordinator/**"
@@ -178,7 +178,7 @@ packages:
         - "openspec/schemas/**"
       deny:
         - "agent-coordinator/src/**"
-        - "agent-coordinator/supabase/**"
+        - "agent-coordinator/database/**"
     worktree:
       name: harness-engineering-features
       mode: isolated
@@ -233,7 +233,7 @@ packages:
         - "openspec/schemas/**"
         - "agent-coordinator/src/**"
       deny:
-        - "agent-coordinator/supabase/**"
+        - "agent-coordinator/database/**"
         - "CLAUDE.md"
     worktree:
       name: harness-engineering-features
@@ -298,7 +298,7 @@ packages:
         - "openspec/schemas/**"
       deny:
         - "agent-coordinator/src/**"
-        - "agent-coordinator/supabase/**"
+        - "agent-coordinator/database/**"
         - "CLAUDE.md"
     worktree:
       name: harness-engineering-features

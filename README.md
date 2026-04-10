@@ -32,7 +32,7 @@ Structured feature development workflow using Claude Code slash commands. Guides
 agentic-coding-tools/
 ├── agent-coordinator/       # Multi-agent coordination system
 │   ├── src/                 # MCP server, locking, work queue
-│   ├── supabase/            # Database migrations
+│   ├── database/            # Database migrations
 │   └── tests/               # Unit and integration tests
 ├── skills/                  # Claude Code slash commands
 │   ├── plan-feature/        # Create OpenSpec proposal

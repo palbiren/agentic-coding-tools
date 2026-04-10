@@ -63,7 +63,7 @@ Connect to the Railway Postgres instance via `psql` and apply migrations in orde
 RAILWAY_DB_URL="postgresql://postgres:<password>@<public-host>:<port>/coordinator"
 
 # Apply migrations in order
-for f in agent-coordinator/supabase/migrations/*.sql; do
+for f in agent-coordinator/database/migrations/*.sql; do
   echo "Applying $f..."
   psql "$RAILWAY_DB_URL" -f "$f"
 done
@@ -72,7 +72,7 @@ done
 Alternatively, use a one-liner:
 
 ```bash
-ls agent-coordinator/supabase/migrations/*.sql | sort | xargs -I {} psql "$RAILWAY_DB_URL" -f {}
+ls agent-coordinator/database/migrations/*.sql | sort | xargs -I {} psql "$RAILWAY_DB_URL" -f {}
 ```
 
 ### GitHub Actions Migration (Optional)
@@ -82,7 +82,7 @@ Add a workflow step to apply migrations on deploy:
 ```yaml
 - name: Apply migrations
   run: |
-    for f in agent-coordinator/supabase/migrations/*.sql; do
+    for f in agent-coordinator/database/migrations/*.sql; do
       psql "${{ secrets.RAILWAY_DB_URL }}" -f "$f"
     done
 ```

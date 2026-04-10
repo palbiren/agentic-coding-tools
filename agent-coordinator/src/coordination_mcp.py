@@ -844,7 +844,7 @@ async def write_handoff(
             in_progress=["Integration tests"],
             decisions=["Used PostgreSQL advisory locks for atomicity"],
             next_steps=["Write integration tests", "Add lock contention metrics"],
-            relevant_files=["src/locks.py", "supabase/migrations/001_core_schema.sql"]
+            relevant_files=["src/locks.py", "database/migrations/001_core_schema.sql"]
         )
     """
     if _transport == "http":

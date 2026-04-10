@@ -232,7 +232,7 @@ PATH_TO_NAMESPACE_RULES: list[tuple[str, str]] = [
     ("contracts/**/*", "contract:"),
     # Database migrations (single global slot)
     ("**/migrations/**", "db:migration-slot"),
-    ("supabase/migrations/**", "db:migration-slot"),
+    ("database/migrations/**", "db:migration-slot"),
     # Database schema definitions
     ("**/schema*.py", "db:schema:"),
     ("**/models/**", "db:schema:"),

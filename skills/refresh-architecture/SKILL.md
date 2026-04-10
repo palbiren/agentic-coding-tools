@@ -33,7 +33,7 @@ Regenerate, validate, or inspect the `docs/architecture-analysis/` artifacts tha
 
 - Python 3.12+ available (or activate the venv: `source agent-coordinator/.venv/bin/activate`)
 - For TypeScript analysis: `npm` with `ts-morph` installed (`make architecture-setup`)
-- For full pipeline: the source directories (`agent-coordinator/src`, `web/`, `agent-coordinator/supabase/migrations`) should exist
+- For full pipeline: the source directories (`agent-coordinator/src`, `web/`, `agent-coordinator/database/migrations`) should exist
 
 ## Architecture Overview
 

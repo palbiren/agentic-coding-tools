@@ -28,7 +28,7 @@ VIEWS_DIR="${ARCH_DIR}/views"
 SCRIPTS_DIR="${SCRIPTS_DIR:-scripts}"
 PYTHON_SRC_DIR="${PYTHON_SRC_DIR:-src}"
 TS_SRC_DIR="${TS_SRC_DIR:-web}"
-MIGRATIONS_DIR="${MIGRATIONS_DIR:-supabase/migrations}"
+MIGRATIONS_DIR="${MIGRATIONS_DIR:-database/migrations}"
 
 GRAPH_FILE="${ARCH_DIR}/architecture.graph.json"
 SUMMARY_FILE="${ARCH_DIR}/architecture.summary.json"

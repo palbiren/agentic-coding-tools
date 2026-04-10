@@ -304,7 +304,7 @@ agent-coordinator/
 │   ├── work_queue.py           # Task queue service
 │   └── coordination_mcp.py     # MCP server (6 tools, 2 resources)
 │
-├── supabase/
+├── database/
 │   ├── migrations/
 │   │   ├── 000_bootstrap.sql   # Auth schema, roles, publication (standalone PostgREST)
 │   │   └── 001_core_schema.sql # Tables + PL/pgSQL functions
@@ -338,7 +338,7 @@ agent-coordinator/
 │   ├── guardrail_patterns.yaml
 │   └── strands/                # Strands agent configurations
 │
-├── supabase/migrations/
+├── database/migrations/
 │   ├── 002_memory_schema.sql
 │   ├── 003_profiles_schema.sql
 │   ├── 004_guardrails_schema.sql

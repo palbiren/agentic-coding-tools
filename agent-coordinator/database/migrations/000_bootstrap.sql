@@ -1,5 +1,5 @@
--- Bootstrap: create roles, schemas, and publications that Supabase hosted
--- provides automatically but aren't present in the bare supabase/postgres image.
+-- Bootstrap: create roles, schemas, and publications that managed Postgres
+-- providers create automatically but aren't present in bare PostgreSQL.
 -- This must sort before 001_core_schema.sql.
 
 -- =============================================================================

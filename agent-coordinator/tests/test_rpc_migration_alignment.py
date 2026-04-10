@@ -29,7 +29,7 @@ def test_coordination_api_rpc_calls_match_migrations() -> None:
     """RPCs in the HTTP runtime path must exist in canonical migrations."""
     repo_root = Path(__file__).resolve().parents[1]
     src_dir = repo_root / "src"
-    migrations_dir = repo_root / "supabase" / "migrations"
+    migrations_dir = repo_root / "database" / "migrations"
 
     runtime_service_files = [
         src_dir / "locks.py",

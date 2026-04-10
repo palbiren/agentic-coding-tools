@@ -30,7 +30,7 @@ steps:
         - "Run migration script in staging"
       relevant_files:
         - "src/locks.py"
-        - "supabase/migrations/004_lock_ttl.sql"
+        - "database/migrations/004_lock_ttl.sql"
     expect:
       status: 200
       body:

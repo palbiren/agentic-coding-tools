@@ -18,7 +18,7 @@ steps:
       resource_claims:
         - "src/db.py"
         - "src/db_postgres.py"
-        - "supabase/migrations/005_new_table.sql"
+        - "database/migrations/005_new_table.sql"
       title: "Database migration for new table"
       agent_id: "agent-1"
       branch_name: "openspec/feat-db-migration"

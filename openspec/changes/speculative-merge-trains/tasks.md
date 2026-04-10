@@ -29,7 +29,7 @@
 
 - [x] 1.4b Implement `file_path_to_namespaces(path: str) -> set[str]` in `merge_train_types.py`. The mapping is heuristic: it returns the set of namespaces the path is LIKELY related to, not a guarantee. The algorithm applies rules in priority order (first match wins unless multiple rules overlap — then union):
   - `contracts/**` → `{"contract:"}`
-  - `**/migrations/**` or `supabase/migrations/**` → `{"db:migration-slot"}`
+  - `**/migrations/**` or `database/migrations/**` → `{"db:migration-slot"}`
   - `**/schema*.py`, `**/models/**`, `**/models.py` → `{"db:schema:"}`
   - `src/api/**`, `**/routes/**`, `**/endpoints/**` → `{"api:"}`
   - `src/events/**`, `**/event_handlers/**` → `{"event:"}`

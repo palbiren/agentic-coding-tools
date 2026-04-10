@@ -266,7 +266,7 @@ agent-coordinator/
 │   ├── config.py               # Environment configuration
 │   └── db.py                   # Shared Supabase client
 │
-├── supabase/
+├── database/
 │   ├── migrations/
 │   │   ├── 001_core_schema.sql
 │   │   └── 002_memory_schema.sql

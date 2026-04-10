@@ -34,7 +34,7 @@ LOCAL AGENTS (Claude Code)     CLOUD AGENTS (Claude API)
               └───────┬───────┘
                       ▼
             ┌─────────────────┐
-            │    SUPABASE     │
+            │   PostgreSQL    │
             │ (file_locks,    │
             │  memory_*,      │
             │  work_queue)    │
@@ -56,7 +56,7 @@ LOCAL AGENTS (Claude Code)     CLOUD AGENTS (Claude API)
 | `src/profiles.py` | Agent profiles and trust levels |
 | `src/audit.py` | Audit trail service |
 | `src/policy_engine.py` | Authorization (native or Cedar) |
-| `src/db.py` | Database abstraction (Supabase) |
+| `src/db.py` | Database abstraction layer |
 | `src/db_postgres.py` | Direct PostgreSQL backend |
 | `src/event_bus.py` | Generalized LISTEN/NOTIFY event bus |
 | `src/notifications/` | Pluggable notifier (Gmail, Telegram, webhook channels) |
@@ -64,7 +64,7 @@ LOCAL AGENTS (Claude Code)     CLOUD AGENTS (Claude API)
 | `src/watchdog.py` | Periodic health monitoring (stale agents, aging approvals) |
 | `scripts/report_status.py` | Claude/Codex Stop hook for status reporting |
 | `scripts/gemini_wrapper.sh` | Gemini CLI wrapper with lifecycle management |
-| `supabase/migrations/*.sql` | Database schema |
+| `database/migrations/*.sql` | Database schema |
 
 ## Production Cloud API Path
 

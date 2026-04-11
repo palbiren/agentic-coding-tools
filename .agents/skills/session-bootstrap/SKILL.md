@@ -41,11 +41,15 @@ On a resumed session, `bootstrap-cloud.sh` takes <1 second — it only checks th
 
 ### 1. Cloud Setup Script (Environment Settings UI)
 
-Copy the contents of `setup-cloud.sh` into the Setup Script field. Or reference it:
+The Setup Script field is a text area in the cloud UI (not committed to git).
+Paste this one-liner — it calls the versioned script from the cloned repo:
 
 ```bash
-bash "$CLAUDE_PROJECT_DIR/.claude/skills/session-bootstrap/scripts/setup-cloud.sh"
+bash "$(pwd)/.claude/skills/session-bootstrap/scripts/setup-cloud.sh"
 ```
+
+Note: `$(pwd)` not `$CLAUDE_PROJECT_DIR` — the Setup Script runs before Claude Code
+launches, so `CLAUDE_PROJECT_DIR` isn't set yet. The repo is already cloned at `$(pwd)`.
 
 ### 2. `.claude/settings.json` — Hooks
 

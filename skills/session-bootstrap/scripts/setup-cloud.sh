@@ -1,7 +1,10 @@
 #!/bin/bash
 # setup-cloud.sh — One-time cloud environment setup.
 #
-# Paste this into the cloud Environment Settings "Setup Script" field.
+# For the cloud Environment Settings "Setup Script" field, paste:
+#   bash "$(pwd)/.claude/skills/session-bootstrap/scripts/setup-cloud.sh"
+#
+# Or paste the full script contents if the skill isn't installed yet.
 # Runs as root on new sessions only (skipped on resume).
 #
 # Claude Code web pre-installs: Python 3.x, uv, pip, npm, pnpm, docker, git.

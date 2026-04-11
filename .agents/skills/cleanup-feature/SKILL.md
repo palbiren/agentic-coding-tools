@@ -17,7 +17,7 @@ triggers:
 
 # Cleanup Feature
 
-Merge an approved PR, migrate any open tasks to beads or a follow-up proposal, archive the OpenSpec proposal, and cleanup branches.
+Merge an approved PR, migrate any open tasks to coordinator issues or a follow-up proposal, archive the OpenSpec proposal, and cleanup branches.
 
 ## Arguments
 
@@ -77,8 +77,22 @@ openspec show $CHANGE_ID
 **Launcher Invariant**: The shared checkout is read-only. Perform all cleanup operations in a worktree:
 
 ```bash
-python3 "<skill-base-dir>/../worktree/scripts/worktree.py" setup "$CHANGE_ID" --agent-id cleanup
-cd $WORKTREE_PATH
+eval "$(python3 "<skill-base-dir>/../worktree/scripts/worktree.py" setup "$CHANGE_ID" --agent-id cleanup)"
+cd "$WORKTREE_PATH"
+
+# The cleanup worktree is on its OWN scratch branch (with the --cleanup suffix),
+# so that cleanup operations don't collide with a still-running implementation
+# worktree. We need two distinct branch variables:
+#
+#   CLEANUP_BRANCH — this worktree's own branch (openspec/<change-id>--cleanup
+#                    by default, or <override>--cleanup when OPENSPEC_BRANCH_OVERRIDE
+#                    is set). Used for teardown.
+#   FEATURE_BRANCH — the PARENT feature branch being merged/deleted. This is
+#                    the branch implement-feature pushed and opened a PR against.
+#                    Used for gh pr merge, git branch -d, and lock cleanup.
+CLEANUP_BRANCH="$WORKTREE_BRANCH"
+eval "$(python3 "<skill-base-dir>/../worktree/scripts/worktree.py" resolve-branch "$CHANGE_ID" --parent)"
+FEATURE_BRANCH="$BRANCH"
 ```
 
 ### 2. Verify PR is Approved
@@ -87,8 +101,8 @@ cd $WORKTREE_PATH
 # Check PR status
 gh pr status
 
-# Or check specific PR
-gh pr view openspec/<change-id>
+# Or check specific PR (use the resolved FEATURE_BRANCH, not a hardcoded prefix)
+gh pr view "$FEATURE_BRANCH"
 ```
 
 Confirm PR is approved and CI is passing before proceeding.
@@ -137,6 +151,34 @@ python3 skills/validate-feature/scripts/gate_logic.py \
 
 This is a **hard gate** — merge is blocked until all required phases pass or the user explicitly overrides.
 
+### 2.5b. Holdout Gate Check (If Rework Report Exists)
+
+If `openspec/changes/<change-id>/rework-report.json` exists, check whether holdout scenario failures block cleanup:
+
+```bash
+REWORK_REPORT="openspec/changes/$CHANGE_ID/rework-report.json"
+if [[ -f "$REWORK_REPORT" ]]; then
+  python3 -c "
+import json, sys
+data = json.load(open('$REWORK_REPORT'))
+summary = data.get('summary', {})
+if summary.get('has_blocking_holdout'):
+    holdout_ids = [f['scenario_id'] for f in data.get('failures', [])
+                   if f.get('visibility') == 'holdout' and f.get('recommended_action') == 'block-cleanup']
+    print(f'HALT: Holdout scenario failures block cleanup: {holdout_ids}')
+    sys.exit(1)
+print('Holdout gate: clear')
+"
+fi
+```
+
+If the holdout gate halts:
+1. Return to `/iterate-on-implementation` to address holdout failures
+2. Re-run `/validate-feature` to regenerate the rework report
+3. Only proceed if the rework report no longer contains blocking holdout failures
+
+The `process-analysis.md` artifact, if present, is consumed **read-only** at this stage for inclusion in the PR description and session log. It is NOT regenerated during cleanup.
+
 ### 2.6. Merge Queue Integration [coordinated only]
 
 These steps run only when coordinator is available with `CAN_MERGE_QUEUE` and `CAN_FEATURE_REGISTRY` capabilities.
@@ -157,7 +199,8 @@ python3 skills/merge-pull-requests/scripts/merge_pr.py merge <pr_number> \
   --validation-report openspec/changes/<change-id>/validation-report.md
 
 # Direct gh merge (only if gate already passed in step 2.5a)
-gh pr merge openspec/<change-id> --rebase --delete-branch
+# Uses the resolved FEATURE_BRANCH, which honors OPENSPEC_BRANCH_OVERRIDE
+gh pr merge "$FEATURE_BRANCH" --rebase --delete-branch
 ```
 
 **Explicit user override** (only when user explicitly requests):
@@ -207,17 +250,24 @@ If there are **open tasks**, collect them with their context:
 
 Ask the user which migration strategy to use:
 
-**Option A — Beads issues** (if `.beads/` directory exists):
+**Option A — Coordinator issues** (if coordinator is available):
 
-For each open task group that has unchecked items:
-```bash
-# Create a beads issue per open task
-bd create "<task description>" \
-  --label "followup,openspec:<change-id>" \
-  --priority medium
+For each open task group that has unchecked items, use the coordinator's issue tracking MCP tools:
+```
+issue_create(
+  title="<task description>",
+  description="Followup from OpenSpec <change-id>. File scope: <files>",
+  issue_type="task",
+  priority=5,
+  labels=["followup", "openspec:<change-id>"]
+)
 
-# If tasks have dependencies on each other, link them
-bd dep add <child-id> <parent-id>
+# If tasks have dependencies on each other, create with depends_on
+issue_create(
+  title="<dependent task>",
+  depends_on=["<parent-issue-id>"],
+  labels=["followup", "openspec:<change-id>"]
+)
 ```
 
 Include in each issue description:
@@ -225,7 +275,7 @@ Include in each issue description:
 - The file scope from the task group
 - Any relevant context from `proposal.md` or `design.md`
 
-**Option B — Follow-up OpenSpec proposal** (default if beads is not initialized):
+**Option B — Follow-up OpenSpec proposal** (default if coordinator is not available):
 
 Create a new proposal using runtime-native new/continue workflow (or CLI fallback) with:
 - **Change-id**: `followup-<original-change-id>` (e.g., `followup-add-retry-logic`)
@@ -241,7 +291,7 @@ After migration, annotate the original `tasks.md` to record where open tasks wen
 
 ```markdown
 ## Migration Notes
-Open tasks migrated to [beads issues labeled `openspec:<change-id>`] | [follow-up proposal `followup-<change-id>`] on YYYY-MM-DD.
+Open tasks migrated to [coordinator issues labeled `openspec:<change-id>`] | [follow-up proposal `followup-<change-id>`] on YYYY-MM-DD.
 ```
 
 This annotation is preserved in the archive for traceability.
@@ -324,7 +374,8 @@ openspec validate --strict
 
 ```bash
 # Delete local feature branch (if not already deleted)
-git branch -d openspec/<change-id> 2>/dev/null || true
+# Uses the resolved FEATURE_BRANCH to honor OPENSPEC_BRANCH_OVERRIDE
+git branch -d "$FEATURE_BRANCH" 2>/dev/null || true
 
 # Prune remote tracking branches
 git fetch --prune
@@ -332,7 +383,7 @@ git fetch --prune
 
 If `CAN_LOCK=true`, perform best-effort lock cleanup for files touched on the feature branch:
 
-- Compare `main...openspec/<change-id>` changed files
+- Compare `main...$FEATURE_BRANCH` changed files
 - Attempt release for each lock owned by this agent/session
 - Treat release failures as warnings (do not block cleanup)
 
@@ -381,7 +432,7 @@ If `CAN_FEATURE_REGISTRY=true`, re-analyze conflicts for active features. Featur
 ## Output
 
 - PR merged to main
-- Open tasks migrated to beads issues or follow-up OpenSpec proposal (if any)
+- Open tasks migrated to coordinator issues or follow-up OpenSpec proposal (if any)
 - OpenSpec proposal archived
 - Specs updated in `openspec/specs/`
 - Branches cleaned up

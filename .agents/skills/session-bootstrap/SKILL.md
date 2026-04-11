@@ -9,19 +9,32 @@ Cloud coding environments (Claude Code web, Codex) are ephemeral — the repo is
 1. **`bootstrap-cloud.sh`** — Idempotent environment setup (Python, venvs, OpenSpec, git config)
 2. **Coordinator hooks** — Session registration, status reporting, and deregistration via the coordinator HTTP API
 
+## Two-Phase Bootstrap
+
+Network permissions can differ between the SessionStart hook context and the interactive session. The bootstrap splits into two phases:
+
+| Phase | When | What | Network? |
+|-------|------|------|----------|
+| **Hook** (`--hook`) | SessionStart hook | Venv activation (`CLAUDE_ENV_FILE`), git config, env var check | No |
+| **Full** (default) | Agent's first Bash call | Python install, `uv sync`, `npm install`, skills install, frontend | Yes |
+
+The hook phase runs automatically. The full phase is triggered by a CLAUDE.md instruction so it runs in the agent's Bash context where network is reliably available.
+
 ## Shipped Scripts
 
-| Script | Hook Event | Purpose |
-|--------|-----------|---------|
-| `scripts/bootstrap-cloud.sh` | SessionStart | Install Python, venvs, OpenSpec CLI, git config |
-| `scripts/hooks/print_coordinator_env.py` | SessionStart | Print active coordinator configuration |
-| `scripts/hooks/register_agent.py` | SessionStart | Register session; load previous handoff |
+| Script | Trigger | Purpose |
+|--------|---------|---------|
+| `scripts/bootstrap-cloud.sh --hook` | SessionStart hook | Activate venv, git config (no network) |
+| `scripts/bootstrap-cloud.sh` | Agent Bash (CLAUDE.md) | Full install: Python, venvs, OpenSpec, skills |
+| `scripts/bootstrap-cloud.sh --check` | Manual | Dry-run diagnostics |
+| `scripts/hooks/print_coordinator_env.py` | SessionStart hook | Print active coordinator configuration |
+| `scripts/hooks/register_agent.py` | SessionStart hook | Register session; load previous handoff |
 | `scripts/hooks/report_status.py` | Stop / SubagentStop | Report phase completion to coordinator |
 | `scripts/hooks/deregister_agent.py` | SessionEnd | Deregister session; write final handoff |
 
-## Hook Wiring
+## Wiring for Target Repos
 
-Target repos wire these scripts in `.claude/settings.json`:
+### 1. `.claude/settings.json` — Hooks (auto-run)
 
 ```json
 {
@@ -29,7 +42,7 @@ Target repos wire these scripts in `.claude/settings.json`:
     "SessionStart": [{
       "matcher": "",
       "hooks": [
-        { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/skills/session-bootstrap/scripts/bootstrap-cloud.sh", "timeout": 300 },
+        { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/skills/session-bootstrap/scripts/bootstrap-cloud.sh --hook", "timeout": 30 },
         { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/skills/session-bootstrap/scripts/hooks/print_coordinator_env.py" },
         { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/skills/session-bootstrap/scripts/hooks/register_agent.py" }
       ]
@@ -54,6 +67,21 @@ Target repos wire these scripts in `.claude/settings.json`:
     }]
   }
 }
+```
+
+### 2. `CLAUDE.md` — Full bootstrap (agent-run)
+
+Add this to the target repo's `CLAUDE.md`:
+
+```markdown
+## Cloud Bootstrap
+
+On first Bash invocation in a new session, run the environment bootstrap:
+
+    bash .claude/skills/session-bootstrap/scripts/bootstrap-cloud.sh
+
+This installs Python 3.12+, project venvs, OpenSpec CLI, and frontend
+dependencies. It is idempotent — safe to re-run, skips completed steps.
 ```
 
 ## Environment Variables

@@ -105,6 +105,7 @@ The active-agent guard checks `.git-worktrees/.registry.json` for non-stale entr
 - [Skills Workflow](docs/skills-workflow.md) — Workflow guide, stage-by-stage explanation, design principles
 - [Agent Coordinator](docs/agent-coordinator.md) — Architecture overview, capabilities, design pointers
 - [OpenBao Secret Management](docs/openbao-secret-management.md) — Setup options, seeding, API key resolution for SDK dispatch
+- [Cross-Repo Setup](docs/cross-repo-setup.md) — Using skills, scripts, and MCP servers in other repositories
 
 ## Landing the Plane (Session Completion)
 

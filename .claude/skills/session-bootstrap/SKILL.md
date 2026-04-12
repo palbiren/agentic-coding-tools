@@ -1,3 +1,10 @@
+---
+name: session-bootstrap
+description: "Cloud environment bootstrap (setup script + verify hook) and coordinator lifecycle hooks"
+category: Infrastructure
+tags: [bootstrap, cloud, setup, hooks, coordinator, session]
+---
+
 # Session Bootstrap
 
 Infrastructure skill that provides cloud environment setup and coordinator lifecycle hooks.

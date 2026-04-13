@@ -17,6 +17,7 @@ Each workflow skill auto-selects its execution tier at startup based on coordina
 | **Sequential** | Unavailable | Tasks.md only | Single-agent sequential |
 
 ```
+# Single-change workflow
 /explore-feature [focus-area]                          Candidate feature shortlist
 /plan-feature <description>                            Proposal approval gate
   /iterate-on-plan <change-id> (optional)              Refines plan before approval
@@ -25,6 +26,10 @@ Each workflow skill auto-selects its execution tier at startup based on coordina
   /iterate-on-implementation <change-id>               Refinement complete
   /parallel-review-implementation <change-id>          Per-package review (vendor-diverse)
 /cleanup-feature <change-id>                           Done (auto-validates: deploy, smoke, security, e2e)
+
+# Multi-change roadmap orchestration (wraps the single-change workflow)
+/plan-roadmap <proposal-path>                          Decompose proposal → prioritized roadmap
+/autopilot-roadmap <workspace-path>                    Execute roadmap items with learning feedback
 ```
 
 Validation is built into the workflow: `/implement-feature` runs environment-safe phases (spec compliance, evidence completeness), `/cleanup-feature` and `/merge-pull-requests` run Docker-dependent phases (deploy, smoke, security, E2E) before merge. All delegate to `/validate-feature --phase <phases>`. The skill can also be invoked directly for a full manual pass.
@@ -385,6 +390,84 @@ Consumes the bug-scrub report and applies remediation. Classifies findings into 
 **Gate**: None — but prompts user before committing if regressions are detected.
 
 **Workflow pair**: Run `/bug-scrub` first (diagnosis), then `/fix-scrub` (remediation).
+
+## Roadmap Orchestration
+
+The core workflow above handles **one OpenSpec change at a time**. For larger initiatives — long markdown proposals from Claude Chat, Perplexity, or ChatGPT Pro that describe multiple capabilities — the roadmap layer decomposes and orchestrates multiple changes.
+
+```
+/plan-roadmap <proposal-path>          Decompose proposal → prioritized roadmap
+/autopilot-roadmap <workspace-path>    Execute roadmap items with learning feedback
+```
+
+### How it relates to the single-change workflow
+
+The roadmap skills **wrap** the existing workflow rather than replacing it:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  /plan-roadmap                                                 │
+│  1. Parse proposal → extract capabilities, constraints, phases │
+│  2. Build candidate items with size validation (merge/split)   │
+│  3. Construct dependency DAG                                   │
+│  4. User approves candidates                                   │
+│  5. Scaffold OpenSpec changes (one per approved item)           │
+│     └── Each scaffolded change has proposal.md, tasks.md,      │
+│         specs/, linked back to the parent roadmap               │
+└────────────────────────────────────────────────────────────────┘
+         │ produces roadmap.yaml + child OpenSpec changes
+         ▼
+┌────────────────────────────────────────────────────────────────┐
+│  /autopilot-roadmap                                            │
+│  For each ready item (dependency-aware, priority order):       │
+│    ├── /plan-feature (if needed)                               │
+│    ├── /implement-feature                                      │
+│    ├── /iterate-on-implementation                              │
+│    ├── /validate-feature                                       │
+│    └── /cleanup-feature                                        │
+│  Between items:                                                │
+│    ├── Write learning entry (decisions, blockers, deviations)  │
+│    ├── Ingest prior learnings before next item                 │
+│    └── Replan: adjust priorities of pending items              │
+│  On vendor limit:                                              │
+│    └── Policy engine: wait / switch / fail-closed              │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Key concepts
+
+**Progressive disclosure learning log**: Each completed item writes a learning entry to `learnings/<item-id>.md`. Before executing the next item, the orchestrator loads only direct-dependency entries plus the 3 most recent — bounding context to O(k) not O(n). At 50+ entries, a compaction pass archives older entries.
+
+**Vendor scheduling policy**: When a vendor hits rate/budget limits, the policy engine (`roadmap.yaml` → `policy` section) decides:
+- `wait_if_budget_exceeded` (default): Pause until reset window
+- `switch_if_time_saved`: Route to alternate vendor if cost ceiling allows
+- Cascading failover: Recursive evaluation across vendors up to `max_switch_attempts_per_item`
+- Fail closed: Block the item when no vendor can proceed
+
+**Checkpoint resume**: Execution state persists in `checkpoint.json`. If interrupted, `/autopilot-roadmap` resumes from the last successful phase without duplicating work.
+
+**Item failure handling**: Failed items are marked in the roadmap with a structured reason. Dependents transition to `blocked` or `replan_required`. The orchestrator continues with independent items rather than halting.
+
+### Architecture
+
+Three skill directories support roadmap orchestration:
+
+| Skill | Role | Location |
+|-------|------|----------|
+| `roadmap-runtime` | Shared library (models, checkpoint, learning, sanitizer, context) | `skills/roadmap-runtime/` |
+| `plan-roadmap` | Proposal decomposition and change scaffolding | `skills/plan-roadmap/` |
+| `autopilot-roadmap` | Execution loop, policy engine, adaptive replanning | `skills/autopilot-roadmap/` |
+
+Artifact schemas live at `openspec/schemas/roadmap.schema.json`, `checkpoint.schema.json`, and `learning-log.schema.json`.
+
+### When to use roadmap vs single-change
+
+| Scenario | Use |
+|----------|-----|
+| One capability, clear scope | `/plan-feature` → `/implement-feature` |
+| Full lifecycle automation of one change | `/autopilot` |
+| Long proposal with 3+ distinct capabilities | `/plan-roadmap` → `/autopilot-roadmap` |
+| Multi-phase initiative with dependencies between capabilities | `/plan-roadmap` → `/autopilot-roadmap` |
 
 ## Design Principles
 

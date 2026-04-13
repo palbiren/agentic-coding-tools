@@ -40,7 +40,9 @@ USAGE
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_ROOT="$(pwd)"
+# Default target is the repo root (parent of skills/), not $(pwd).
+# This prevents accidentally syncing into skills/ when run from that directory.
+TARGET_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || dirname "$SCRIPT_DIR")"
 AGENTS="claude,agents"
 MODE="rsync"
 FORCE=0

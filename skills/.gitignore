@@ -1,0 +1,4 @@
+# Runtime skill copies belong at repo root (.claude/skills/, .agents/skills/),
+# NOT inside the canonical skills/ directory.
+.claude/
+.agents/

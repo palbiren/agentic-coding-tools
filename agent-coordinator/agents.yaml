@@ -173,14 +173,18 @@ agents:
       command: gemini
       dispatch_modes:
         review:
-          args: ["--approval-mode", "default", "-o", "json"]
+          # -p triggers headless mode; its value primes JSON output.
+          # The full review prompt arrives via stdin (-p appends stdin).
+          # -o text gives clean model output (no session envelope).
+          args: ["-p", "Respond with ONLY valid JSON conforming to review-findings.schema.json. No markdown, no explanation, no code fences.", "--approval-mode", "default", "-o", "text"]
         alternative:
-          args: ["--approval-mode", "yolo"]
+          args: ["-p", "", "--approval-mode", "yolo"]
         quick:
-          args: ["--approval-mode", "yolo"]
+          args: ["-p", "", "--approval-mode", "yolo"]
       model_flag: "-m"
       model: "auto"
       model_fallbacks: ["flash"]
+      prompt_via_stdin: true
 
   gemini-remote:
     type: gemini

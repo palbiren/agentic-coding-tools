@@ -1,8 +1,16 @@
 #!/bin/bash
 # setup-cloud.sh — One-time cloud environment setup.
 #
-# For the cloud Environment Settings "Setup Script" field, paste:
-#   bash "$(pwd)/.claude/skills/session-bootstrap/scripts/setup-cloud.sh"
+# For the cloud Environment Settings "Setup Script" field of each harness,
+# see skills/session-bootstrap/SKILL.md §1.  The snippet differs per harness
+# (Claude Code paste-snippet targets */.claude/skills/..., Codex targets
+# */.agents/skills/...), because install.sh rsyncs this file into both
+# .claude/skills/session-bootstrap/scripts/ and
+# .agents/skills/session-bootstrap/scripts/ of the consumer repo.
+#
+# Do NOT recommend a literal "$(pwd)/.claude/..." path — on Claude Code web
+# that resolves to /home/user/.claude/... which doesn't exist, yielding
+# "file not found".
 #
 # Or paste the full script contents if the skill isn't installed yet.
 # Runs as root on new sessions only (skipped on resume).
@@ -16,7 +24,23 @@
 
 set -euo pipefail
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+# Resolve project root — Setup Script can run with cwd = parent of clone on
+# Claude Code web (e.g. cwd is /home/user while the repo is at
+# /home/user/<reponame>/), so we can't trust $(pwd) alone.  Priority:
+#   1. $CLAUDE_PROJECT_DIR (set when Claude Code invokes the script).
+#   2. Walk up from the script's own location to the git root (works in both
+#      canonical skills/... and installed .claude/skills/... layouts).
+#   3. Fall back to $(pwd) if we can't find a git root (keeps old behavior).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+    PROJECT_DIR="$CLAUDE_PROJECT_DIR"
+elif git -C "$SCRIPT_DIR/../../.." rev-parse --show-toplevel >/dev/null 2>&1; then
+    PROJECT_DIR="$(git -C "$SCRIPT_DIR/../../.." rev-parse --show-toplevel)"
+elif git -C "$SCRIPT_DIR/../../../.." rev-parse --show-toplevel >/dev/null 2>&1; then
+    PROJECT_DIR="$(git -C "$SCRIPT_DIR/../../../.." rev-parse --show-toplevel)"
+else
+    PROJECT_DIR="$(pwd)"
+fi
 
 log() { echo "[setup] $*"; }
 

@@ -18,6 +18,12 @@ PATTERNS=(
 EXCLUDE_PATHS=(
     '.githooks/pre-commit'
     'skills/session-log/scripts/test_sanitize_session_log.py'
+    'skills/session-bootstrap/scripts/setup-cloud.sh'
+    'skills/session-bootstrap/SKILL.md'
+    '.claude/skills/session-bootstrap/scripts/setup-cloud.sh'
+    '.claude/skills/session-bootstrap/SKILL.md'
+    '.agents/skills/session-bootstrap/scripts/setup-cloud.sh'
+    '.agents/skills/session-bootstrap/SKILL.md'
 )
 
 build_exclude_args() {

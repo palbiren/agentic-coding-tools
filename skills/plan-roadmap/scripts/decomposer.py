@@ -141,6 +141,7 @@ def _parse_sections(text: str) -> list[_Section]:
     current_start = 0
     in_fenced_block = False
     fence_marker = ""
+    fence_length = 0
 
     for i, line in enumerate(lines):
         # Track fenced code blocks (```, ~~~~, etc.)
@@ -150,10 +151,19 @@ def _parse_sections(text: str) -> list[_Section]:
             if not in_fenced_block:
                 in_fenced_block = True
                 fence_marker = marker[0]  # ` or ~
-            elif line.strip().startswith(fence_marker) and len(line.strip().rstrip(fence_marker[0])) == 0:
-                # Closing fence must use same char as opening
-                in_fenced_block = False
-                fence_marker = ""
+                fence_length = len(marker)
+            else:
+                # Closing fence: same char, at least as many as opening,
+                # nothing else on the line (after stripping whitespace)
+                stripped = line.strip()
+                if (
+                    stripped[0] == fence_marker
+                    and len(stripped) >= fence_length
+                    and stripped == fence_marker * len(stripped)
+                ):
+                    in_fenced_block = False
+                    fence_marker = ""
+                    fence_length = 0
             current_body_lines.append(line)
             continue
 
@@ -684,7 +694,8 @@ def _generate_clean_id(title: str) -> str:
     # Remove leading numeric prefixes (e.g., "1-1-" from "§1.1")
     slug = re.sub(r"^[\d]+-(?:[\d]+-)*", "", slug)
     # Truncate to reasonable length
-    return slug[:60].rstrip("-")
+    result = slug[:60].rstrip("-")
+    return result if result else "unnamed-item"
 
 
 # ---------------------------------------------------------------------------

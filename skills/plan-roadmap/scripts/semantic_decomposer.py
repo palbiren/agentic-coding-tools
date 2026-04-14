@@ -13,11 +13,10 @@ when no LLM client is available.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -252,8 +251,16 @@ def _fallback_structural(
 
     # Post-process: clean IDs, change_id, archive status
     id_remap: dict[str, str] = {}
+    seen_ids: set[str] = set()
     for item in roadmap.items:
         clean_id = _generate_clean_id(item.title)
+        # Collision detection: append suffix if ID already used
+        base_id = clean_id
+        suffix = 2
+        while clean_id in seen_ids:
+            clean_id = f"{base_id}-{suffix}"
+            suffix += 1
+        seen_ids.add(clean_id)
         id_remap[item.item_id] = clean_id
         item.item_id = clean_id
         item.change_id = clean_id

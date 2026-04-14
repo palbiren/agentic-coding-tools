@@ -76,14 +76,9 @@ install_openspec() {
 }
 
 # ---------------------------------------------------------------------------
-# Skills (only in source repo)
+# Skills — runtime copies (.claude/skills/, .agents/skills/) are committed
+# to the repo, so they arrive via git clone.  No install.sh needed.
 # ---------------------------------------------------------------------------
-install_skills() {
-    if [[ -f "$PROJECT_DIR/skills/install.sh" ]]; then
-        log "Installing skills..."
-        bash "$PROJECT_DIR/skills/install.sh" --mode rsync --deps none --python-tools none --force
-    fi
-}
 
 # ---------------------------------------------------------------------------
 # Frontend (if web/ or frontend/ exists)
@@ -123,7 +118,6 @@ setup_git() {
 # ---------------------------------------------------------------------------
 install_venvs
 install_openspec
-install_skills
 install_frontend
 setup_git
 log "=== Setup complete ==="

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # setup-cloud.sh — One-time cloud environment setup.
 #
 # For the cloud Environment Settings "Setup Script" field of each harness,

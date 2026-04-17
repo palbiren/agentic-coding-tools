@@ -1,0 +1,38 @@
+{
+  "vendors": {
+    "neondatabase/agent-skills": {
+      "commit": "38c7da85db656c8c9efd1e6433c200212926fd2d",
+      "fetched": "2026-04-17",
+      "repo": "https://github.com/neondatabase/agent-skills",
+      "paths": [
+        "skills/neon-postgres",
+        "skills/claimable-postgres",
+        "plugins/neon-postgres/mcp.json"
+      ]
+    },
+    "railwayapp/railway-skills": {
+      "commit": "fde1b6da69291ece50091d30dcf512a220f75ad7",
+      "fetched": "2026-04-17",
+      "repo": "https://github.com/railwayapp/railway-skills",
+      "paths": [
+        "plugins/railway/skills/use-railway"
+      ]
+    },
+    "supabase/agent-skills": {
+      "commit": "7a646f8812ec8d21cc8735d5b3fe67c9b5e665db",
+      "fetched": "2026-04-17",
+      "repo": "https://github.com/supabase/agent-skills",
+      "paths": [
+        "skills/supabase-postgres-best-practices"
+      ]
+    },
+    "langfuse/skills": {
+      "commit": "af1aaf673239c48d7cdc1898a80b713695afbb33",
+      "fetched": "2026-04-17",
+      "repo": "https://github.com/langfuse/skills",
+      "paths": [
+        "skills/langfuse"
+      ]
+    }
+  }
+}

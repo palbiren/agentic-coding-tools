@@ -1,4 +1,5 @@
--- Migration 017: Add missing operations to agent profiles
+-- Migration 022: Add missing operations to agent profiles
+-- Renumbered from 017 to resolve collision with 017_issue_tracking.sql
 -- Dependencies: 007_agent_profiles.sql
 --
 -- The /work/get endpoint uses operation="get_task" but the seed profiles

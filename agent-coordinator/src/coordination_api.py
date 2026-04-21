@@ -403,6 +403,8 @@ def create_coordination_api() -> FastAPI:
     from collections.abc import AsyncIterator
     from contextlib import asynccontextmanager
 
+    logger = logging.getLogger(__name__)
+
     from .langfuse_tracing import init_langfuse, shutdown_langfuse
     from .telemetry import get_prometheus_app, init_telemetry
 
@@ -865,6 +867,9 @@ def create_coordination_api() -> FastAPI:
             return {"success": True, "issue": issue.to_dict()}
         except ValueError as e:
             return {"success": False, "reason": str(e)}
+        except Exception as e:  # noqa: BLE001
+            logger.exception("create_issue failed")
+            return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
     @app.post("/issues/list")
     async def list_issues(
@@ -951,6 +956,9 @@ def create_coordination_api() -> FastAPI:
             )
         except ValueError as e:
             return {"success": False, "reason": str(e)}
+        except Exception as e:  # noqa: BLE001
+            logger.exception("update_issue failed")
+            return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
         if issue is None:
             return {"success": False, "reason": "issue_not_found"}
@@ -978,6 +986,9 @@ def create_coordination_api() -> FastAPI:
             )
         except ValueError as e:
             return {"success": False, "reason": str(e)}
+        except Exception as e:  # noqa: BLE001
+            logger.exception("close_issue failed")
+            return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
         return {
             "success": True,
@@ -996,7 +1007,11 @@ def create_coordination_api() -> FastAPI:
         from .issue_service import get_issue_service
 
         service = get_issue_service()
-        comment = await service.comment(UUID(request.issue_id), request.body)
+        try:
+            comment = await service.comment(UUID(request.issue_id), request.body)
+        except Exception as e:  # noqa: BLE001
+            logger.exception("comment_issue failed")
+            return {"success": False, "reason": f"{type(e).__name__}: {e}"}
         return {"success": True, "comment": comment.to_dict()}
 
     # --------------------------------------------------------------------- #

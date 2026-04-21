@@ -17,6 +17,7 @@ Usage (standalone for testing):
     python -m src.coordination_mcp --transport http --port 8082
 """
 
+import logging
 import sys
 from typing import Any
 
@@ -35,6 +36,8 @@ from .port_allocator import get_port_allocator
 from .profiles import get_profiles_service
 from .session_grants import get_session_grant_service
 from .work_queue import get_work_queue_service
+
+logger = logging.getLogger(__name__)
 
 # Transport mode — set at startup by main(), read by tool handlers.
 # "db" uses the service layer directly; "http" proxies to coordination_api.
@@ -479,6 +482,9 @@ async def issue_create(
         return {"success": True, "issue": issue.to_dict()}
     except ValueError as e:
         return {"success": False, "reason": str(e)}
+    except Exception as e:  # noqa: BLE001
+        logger.exception("issue_create failed")
+        return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
 
 @mcp.tool
@@ -623,6 +629,9 @@ async def issue_update(
         )
     except ValueError as e:
         return {"success": False, "reason": str(e)}
+    except Exception as e:  # noqa: BLE001
+        logger.exception("issue_update failed")
+        return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
     if issue is None:
         return {"success": False, "reason": "issue_not_found"}
@@ -672,6 +681,9 @@ async def issue_close(
         )
     except ValueError as e:
         return {"success": False, "reason": str(e)}
+    except Exception as e:  # noqa: BLE001
+        logger.exception("issue_close failed")
+        return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
     return {
         "success": True,
@@ -706,7 +718,11 @@ async def issue_comment(
     from .issue_service import get_issue_service
 
     service = get_issue_service()
-    comment = await service.comment(UUID(issue_id), body)
+    try:
+        comment = await service.comment(UUID(issue_id), body)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("issue_comment failed")
+        return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
     return {"success": True, "comment": comment.to_dict()}
 
@@ -740,7 +756,11 @@ async def issue_ready(
     service = get_issue_service()
     parent_uuid = UUID(parent_id) if parent_id else None
 
-    issues = await service.ready(parent_id=parent_uuid, limit=limit)
+    try:
+        issues = await service.ready(parent_id=parent_uuid, limit=limit)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("issue_ready failed")
+        return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
     return {
         "success": True,
@@ -764,7 +784,11 @@ async def issue_blocked() -> dict[str, Any]:
     from .issue_service import get_issue_service
 
     service = get_issue_service()
-    issues = await service.blocked()
+    try:
+        issues = await service.blocked()
+    except Exception as e:  # noqa: BLE001
+        logger.exception("issue_blocked failed")
+        return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
     return {
         "success": True,
@@ -798,7 +822,11 @@ async def issue_search(
     from .issue_service import get_issue_service
 
     service = get_issue_service()
-    issues = await service.search(query=query, limit=limit)
+    try:
+        issues = await service.search(query=query, limit=limit)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("issue_search failed")
+        return {"success": False, "reason": f"{type(e).__name__}: {e}"}
 
     return {
         "success": True,

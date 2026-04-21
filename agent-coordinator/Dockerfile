@@ -36,6 +36,8 @@ COPY cedar/ /app/cedar/
 # /gen-eval/* endpoints (list_scenarios, validate_scenario, create_scenario,
 # run_gen_eval). Without this COPY those routes return 500 at runtime.
 COPY evaluation/ /app/evaluation/
+# Database migrations — required by src/migrations.py auto-runner at startup.
+COPY database/ /app/database/
 COPY agents.yaml /app/agents.yaml
 COPY teams.yaml /app/teams.yaml
 

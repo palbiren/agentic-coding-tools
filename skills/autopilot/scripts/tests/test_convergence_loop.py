@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 # Ensure the convergence_loop module can find its dependencies
 _SCRIPTS_DIR = str(Path(__file__).resolve().parent.parent)
 _PARALLEL_DIR = str(
@@ -18,17 +17,16 @@ for p in (_SCRIPTS_DIR, _PARALLEL_DIR):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+from consensus_synthesizer import (
+    ConsensusFinding,
+    ConsensusReport,
+)
 from convergence_loop import (
     _is_blocking,
     build_review_prompt,
     converge,
 )
-from consensus_synthesizer import (
-    ConsensusFinding,
-    ConsensusReport,
-)
 from review_dispatcher import ReviewResult
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -657,3 +655,166 @@ class TestIsBlocking:
             {"status": "confirmed", "agreed_criticality": "high"},
             relax_unconfirmed=True,
         ) is True
+
+
+class TestPostFixValidator:
+    """Post-fix validator callback tests."""
+
+    def test_validator_errors_attached_to_result(self, tmp_path: Path) -> None:
+        """Validator errors are captured in ConvergenceResult.validation_errors."""
+        finding = _make_consensus_finding(1, status="confirmed", criticality="high")
+
+        results_per_round = []
+        reports_per_round = []
+
+        # Round 1: blocking finding → fix → validator runs
+        results_per_round.append([
+            _make_review_result("vendor_a", success=True, findings=[
+                {"id": 1, "type": "bug", "criticality": "high",
+                 "description": "Bug", "disposition": "fix"}
+            ]),
+            _make_review_result("vendor_b", success=True, findings=[
+                {"id": 1, "type": "bug", "criticality": "high",
+                 "description": "Bug", "disposition": "fix"}
+            ]),
+        ])
+        reports_per_round.append(_make_consensus_report(findings=[finding]))
+
+        # Round 2: no findings → converged
+        results_per_round.append([
+            _make_review_result("vendor_a", success=True, findings=[]),
+            _make_review_result("vendor_b", success=True, findings=[]),
+        ])
+        reports_per_round.append(_make_consensus_report(findings=[]))
+
+        ctx = _setup_converge(results_per_round, reports_per_round, tmp_path)
+        fix_cb = MagicMock()
+        validator = MagicMock(return_value=["test_auth.py: FAILED"])
+
+        with patch("convergence_loop.ConsensusSynthesizer", return_value=ctx["synthesizer"]):
+            result = converge(
+                change_id="test-change",
+                review_type="implementation",
+                artifacts_dir=ctx["artifacts_dir"],
+                worktree_path=tmp_path,
+                orchestrator=ctx["orchestrator"],
+                fix_callback=fix_cb,
+                post_fix_validator=validator,
+            )
+
+        assert result.converged is True
+        assert result.validation_errors == ["test_auth.py: FAILED"]
+        validator.assert_called_once_with(tmp_path)
+
+    def test_validator_not_called_without_fix(self, tmp_path: Path) -> None:
+        """Validator is not called when there are no blocking findings (no fix)."""
+        results = [
+            _make_review_result("vendor_a", success=True, findings=[]),
+            _make_review_result("vendor_b", success=True, findings=[]),
+        ]
+        report = _make_consensus_report(findings=[])
+
+        ctx = _setup_converge([results], [report], tmp_path)
+        validator = MagicMock(return_value=[])
+
+        with patch("convergence_loop.ConsensusSynthesizer", return_value=ctx["synthesizer"]):
+            result = converge(
+                change_id="test-change",
+                review_type="implementation",
+                artifacts_dir=ctx["artifacts_dir"],
+                worktree_path=tmp_path,
+                orchestrator=ctx["orchestrator"],
+                post_fix_validator=validator,
+            )
+
+        assert result.converged is True
+        assert result.validation_errors is None
+        validator.assert_not_called()
+
+    def test_validator_exception_captured(self, tmp_path: Path) -> None:
+        """Validator raising an exception is captured gracefully."""
+        finding = _make_consensus_finding(1, status="confirmed", criticality="high")
+
+        results_per_round = []
+        reports_per_round = []
+
+        # Round 1: blocking → fix → validator raises
+        results_per_round.append([
+            _make_review_result("vendor_a", success=True, findings=[
+                {"id": 1, "type": "bug", "criticality": "high",
+                 "description": "Bug", "disposition": "fix"}
+            ]),
+            _make_review_result("vendor_b", success=True, findings=[
+                {"id": 1, "type": "bug", "criticality": "high",
+                 "description": "Bug", "disposition": "fix"}
+            ]),
+        ])
+        reports_per_round.append(_make_consensus_report(findings=[finding]))
+
+        # Round 2: converges
+        results_per_round.append([
+            _make_review_result("vendor_a", success=True, findings=[]),
+            _make_review_result("vendor_b", success=True, findings=[]),
+        ])
+        reports_per_round.append(_make_consensus_report(findings=[]))
+
+        ctx = _setup_converge(results_per_round, reports_per_round, tmp_path)
+        fix_cb = MagicMock()
+        validator = MagicMock(side_effect=RuntimeError("pytest not found"))
+
+        with patch("convergence_loop.ConsensusSynthesizer", return_value=ctx["synthesizer"]):
+            result = converge(
+                change_id="test-change",
+                review_type="implementation",
+                artifacts_dir=ctx["artifacts_dir"],
+                worktree_path=tmp_path,
+                orchestrator=ctx["orchestrator"],
+                fix_callback=fix_cb,
+                post_fix_validator=validator,
+            )
+
+        assert result.converged is True
+        assert result.validation_errors is not None
+        assert "pytest not found" in result.validation_errors[0]
+
+    def test_no_validator_means_no_errors(self, tmp_path: Path) -> None:
+        """Without a validator, validation_errors is None even after fixes."""
+        finding = _make_consensus_finding(1, status="confirmed", criticality="high")
+
+        results_per_round = [
+            [
+                _make_review_result("vendor_a", success=True, findings=[
+                    {"id": 1, "type": "bug", "criticality": "high",
+                     "description": "Bug", "disposition": "fix"}
+                ]),
+                _make_review_result("vendor_b", success=True, findings=[
+                    {"id": 1, "type": "bug", "criticality": "high",
+                     "description": "Bug", "disposition": "fix"}
+                ]),
+            ],
+            [
+                _make_review_result("vendor_a", success=True, findings=[]),
+                _make_review_result("vendor_b", success=True, findings=[]),
+            ],
+        ]
+        reports_per_round = [
+            _make_consensus_report(findings=[finding]),
+            _make_consensus_report(findings=[]),
+        ]
+
+        ctx = _setup_converge(results_per_round, reports_per_round, tmp_path)
+        fix_cb = MagicMock()
+
+        with patch("convergence_loop.ConsensusSynthesizer", return_value=ctx["synthesizer"]):
+            result = converge(
+                change_id="test-change",
+                review_type="implementation",
+                artifacts_dir=ctx["artifacts_dir"],
+                worktree_path=tmp_path,
+                orchestrator=ctx["orchestrator"],
+                fix_callback=fix_cb,
+                # No post_fix_validator passed
+            )
+
+        assert result.converged is True
+        assert result.validation_errors is None

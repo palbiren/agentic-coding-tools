@@ -71,16 +71,51 @@ bash "$matches"
 **Codex** — paste into the environment's Setup Script field:
 
 ```bash
-matches="$(
-  find "$(pwd)" -maxdepth 7 -path '*/.agents/skills/session-bootstrap/scripts/setup-cloud.sh' -print
-)"
-count="$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
-[ "$count" -eq 1 ] || {
-  printf 'setup-cloud.sh: expected 1 match, got %s:\n' "$count" >&2
-  [ -n "$matches" ] && printf '  %s\n' "$matches" >&2
+SEARCH_ROOT="$(pwd)"
+MATCHES="$(find "$SEARCH_ROOT" -maxdepth 7 -path '*/.agents/skills/session-bootstrap/scripts/setup-cloud.sh' -print)"
+
+if [ -z "$MATCHES" ]; then
+  PARENT="$(dirname "$SEARCH_ROOT")"
+  if [ "$PARENT" != "$SEARCH_ROOT" ]; then
+    MATCHES="$(find "$PARENT" -maxdepth 7 -path '*/.agents/skills/session-bootstrap/scripts/setup-cloud.sh' -print)"
+  fi
+fi
+
+COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
+if [ "$COUNT" -ne 1 ]; then
+  printf 'setup-cloud.sh: expected 1 match, got %s:\n' "$COUNT" >&2
+  if [ -n "$MATCHES" ]; then
+    printf '  %s\n' "$MATCHES" >&2
+  fi
   exit 1
-}
-bash "$matches"
+fi
+
+bash "$MATCHES"
+```
+
+**Codex** — paste into the environment's Maintenance Script field:
+
+```bash
+SEARCH_ROOT="$(pwd)"
+MATCHES="$(find "$SEARCH_ROOT" -maxdepth 7 -path '*/.agents/skills/session-bootstrap/scripts/bootstrap-cloud.sh' -print)"
+
+if [ -z "$MATCHES" ]; then
+  PARENT="$(dirname "$SEARCH_ROOT")"
+  if [ "$PARENT" != "$SEARCH_ROOT" ]; then
+    MATCHES="$(find "$PARENT" -maxdepth 7 -path '*/.agents/skills/session-bootstrap/scripts/bootstrap-cloud.sh' -print)"
+  fi
+fi
+
+COUNT="$(printf '%s\n' "$MATCHES" | sed '/^$/d' | wc -l | tr -d '[:space:]')"
+if [ "$COUNT" -ne 1 ]; then
+  printf 'bootstrap-cloud.sh: expected 1 match, got %s:\n' "$COUNT" >&2
+  if [ -n "$MATCHES" ]; then
+    printf '  %s\n' "$MATCHES" >&2
+  fi
+  exit 1
+fi
+
+bash "$MATCHES"
 ```
 
 Note: `CLAUDE_PROJECT_DIR` isn't set yet at Setup-Script time (Claude Code
@@ -105,7 +140,10 @@ commands run in the right directory.
 The wrapper intentionally avoids `mapfile` and process substitution. Some
 cloud setup runners invoke the field via `/bin/sh`, and some images still ship
 older Bash versions where `mapfile` is unavailable. The `find` + `wc -l`
-variant above is portable across both cases.
+variant above is portable across both cases. Keep the `-path` argument on a
+single line when copying into the cloud UI; if a wrapped line introduces
+whitespace inside `session-bootstrap/scripts/...`, the search pattern no
+longer matches.
 
 ### 2. `.claude/settings.json` — Hooks
 

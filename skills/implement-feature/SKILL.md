@@ -317,14 +317,32 @@ python3 "<skill-base-dir>/../worktree/scripts/worktree.py" gc
 
 ### 4. Track Progress [all tiers]
 
-Use TodoWrite to track implementation. Mark complete as you progress.
+Use TodoWrite for in-session state tracking. Additionally, `tasks.md` is the canonical post-session record of what's done — keep it in sync **commit-by-commit, not batched at the end**.
+
+**Per-task checkbox discipline (REQUIRED)**:
+
+For each task you complete, flip its `- [ ]` to `- [x]` in `openspec/changes/<change-id>/tasks.md` **in the same commit that implements the task**. Do NOT defer checkbox updates into a trailing "mark tasks complete" commit.
+
+- When committing task N.N: stage both the implementation files AND `tasks.md`, then commit together
+- Commit message pattern: `feat(<scope>): <task summary> (<change-id> task N.N)`
+- If you notice an unchecked task whose code has already landed in an earlier commit, flip it in your next commit (do not batch-flip at the end)
+
+**Why this discipline matters**: When PRs auto-merge via review-queue automation, a trailing "mark tasks complete" commit is often skipped, lost during rebase, or bundled into an unrelated squash. Coupling the checkbox flip to the implementation commit means the bookkeeping travels with the code, and archive-time drift (tasks.md showing 0/N while implementation is 100% landed) becomes structurally impossible. Past incident: `specialized-workflow-agents` (archived 2026-04-22) shipped all 29 tasks of code to main with 0/29 checkboxes flipped, requiring retroactive reconciliation via `/openspec-verify-change` before archive.
 
 ### 5. Verify All Tasks Complete [all tiers]
+
+This is a **last-line-of-defense** check after per-task discipline. If Step 4 was followed, this should pass trivially.
 
 ```bash
 grep -E "^\s*- \[ \]" openspec/changes/<change-id>/tasks.md
 # Should return nothing (all boxes checked)
 ```
+
+**If it returns any lines, STOP and reconcile before proceeding**:
+- If the task was implemented: flip its checkbox in a new commit (`chore(openspec): reconcile task N.N checkbox`) — do NOT amend implementation commits already on main
+- If the task is genuinely deferred: move it to `openspec/changes/<change-id>/deferred-tasks.md` with a short rationale, and remove it from tasks.md
+
+Do NOT run quality checks (Step 6) or `/validate-feature` (Step 6.5) while tasks.md has unchecked boxes — the spec-compliance phase will fail the task-drift gate.
 
 ### 6. Quality Checks (Parallel Execution) [all tiers]
 

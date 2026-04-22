@@ -425,7 +425,41 @@ Report architecture diagnostics including broken flows, missing test coverage, o
 ### 7. Spec Compliance Phase (via Change Context)
 
 **Phase name:** `spec`
-**Criticality:** Non-critical (continues on failure)
+**Criticality:** Non-critical (continues on failure) — EXCEPT the task-drift gate (7.0) which is CRITICAL within this phase.
+
+#### 7.0. Task Checkbox Drift Gate (CRITICAL)
+
+Before verifying requirements against the live system, enforce that `tasks.md` reflects commit reality. Drift between the two is a spec-compliance failure: the plan document either overstates completeness (dangerous) or understates it (bookkeeping debt that breaks archive-time invariants).
+
+```bash
+# Run from the change's worktree or feature branch
+TASKS_FILE="openspec/changes/<change-id>/tasks.md"
+UNCHECKED=$(grep -cE "^\s*- \[ \]" "$TASKS_FILE" 2>/dev/null || echo 0)
+
+# Count commits on the feature branch since divergence from main
+# (excludes commits on main that the branch inherited)
+COMMIT_COUNT=$(git rev-list --count main..HEAD 2>/dev/null || echo 0)
+
+if [ "$UNCHECKED" -gt 0 ] && [ "$COMMIT_COUNT" -gt 0 ]; then
+  echo "FAIL: task checkbox drift detected"
+  echo "  $TASKS_FILE has $UNCHECKED unchecked boxes"
+  echo "  branch has $COMMIT_COUNT commit(s) since main"
+  echo ""
+  echo "Either:"
+  echo "  (a) complete the remaining tasks — in which case this validation run is premature"
+  echo "  (b) reconcile — flip checkboxes for tasks whose code has landed (new commit, do NOT amend)"
+  echo "  (c) defer — move genuinely-skipped tasks to deferred-tasks.md"
+  echo ""
+  echo "Do not proceed to requirement verification with drifted tasks.md."
+  exit 1  # CRITICAL failure — halts the spec phase
+fi
+```
+
+**Why this is CRITICAL**: Archive validation (`openspec archive`) checks the tasks artifact's overall status, not individual checkboxes — meaning drift can slip through archive-time and leave inaccurate history. Catching it here, before the archive path, ensures the spec phase is the single source of truth for "does the plan document match what was built?" Per the incident log, `specialized-workflow-agents` shipped 29 tasks' worth of implementation to main with 0/29 checkboxes flipped because the validation gate didn't catch the drift (this check was added 2026-04-22 in response).
+
+**In CI-vs-local behavior**: In local validation, `exit 1` halts the phase immediately. In CI-invoked validation (where halting would abort merge-gate automation unhelpfully), record the drift as a CRITICAL finding in `validation-report.md` under "Phase Results" with Result=`fail` and Details listing the specific unchecked task IDs — do not silently continue.
+
+#### 7.1. Requirement Traceability (per-requirement live verification)
 
 Use the `change-context.md` traceability matrix as the spec compliance artifact:
 

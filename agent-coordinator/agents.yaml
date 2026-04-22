@@ -15,6 +15,13 @@
 # fallback when the vendor's CLI is not installed.  API keys are resolved
 # via OpenBao at runtime (using `openbao_role_id`), falling back to the
 # environment variable named in `api_key_env`.
+#
+# The optional `archetypes` field declares which agent archetypes (defined in
+# archetypes.yaml) this agent can fulfill. When set, the coordinator work
+# queue filters claims by archetype compatibility — a task submitted with
+# `agent_requirements.archetype = "architect"` will only be claimed by agents
+# whose archetypes list includes "architect". Agents with no archetypes
+# field (or an empty list) are backward-compatible and can claim any task.
 
 agents:
   # ---------------------------------------------------------------------------
@@ -28,6 +35,7 @@ agents:
     transport: mcp
     isolation: worktree
     capabilities: [lock, queue, memory, guardrails, handoff, discover, audit]
+    archetypes: [architect, analyst, implementer, reviewer, runner, documenter]
     description: Local Claude Code CLI agent with full coordination access
     cli:
       command: claude
@@ -52,6 +60,7 @@ agents:
     api_key: "${CLAUDE_WEB_API_KEY}"
     openbao_role_id: claude-code-web
     capabilities: [lock, queue, memory, guardrails, handoff, discover]
+    archetypes: [analyst, implementer, reviewer, documenter]
     description: Remote Claude Code agent (runs on Anthropic infrastructure)
     cli:
       command: claude
@@ -97,6 +106,7 @@ agents:
     transport: mcp
     isolation: worktree
     capabilities: [lock, queue, memory, guardrails, handoff, discover, audit]
+    archetypes: [architect, analyst, implementer, reviewer, runner, documenter]
     description: Local Codex worker with full coordination access
     cli:
       command: codex
@@ -120,6 +130,7 @@ agents:
     api_key: "${CODEX_API_KEY}"
     openbao_role_id: codex-cloud
     capabilities: [lock, queue, memory, guardrails]
+    archetypes: [implementer, reviewer]
     description: Remote Codex agent (runs on OpenAI infrastructure)
     cli:
       command: codex
@@ -168,6 +179,7 @@ agents:
     transport: mcp
     isolation: worktree
     capabilities: [lock, queue, memory, guardrails, handoff, discover, audit]
+    archetypes: [analyst, implementer, reviewer, runner, documenter]
     description: Local Gemini worker with full coordination access
     cli:
       command: gemini
@@ -195,6 +207,7 @@ agents:
     api_key: "${GEMINI_API_KEY}"
     openbao_role_id: gemini-cloud
     capabilities: [lock, queue, memory]
+    archetypes: [implementer, reviewer]
     description: Remote Gemini agent via Jules extension (async dispatch)
     cli:
       command: gemini

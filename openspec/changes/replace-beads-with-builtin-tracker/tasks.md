@@ -52,14 +52,27 @@
 - [x] 4.1 Write migration script — `scripts/migrate_beads_to_coordinator.py` (run with `--dry-run` first)
   **Dependencies**: 2.2
 
-- [ ] 4.2 Remove `.beads/` directory and configuration — **deferred to post-merge** (run migration script first, then `rm -rf .beads/`)
+- [x] 4.2 Remove `.beads/` directory and configuration — empty `.beads/` removed post-migration
   **Dependencies**: 4.1, 3.4
 
-- [ ] 4.3 Remove beads plugin skills — **deferred to post-merge** (uninstall beads plugin from Claude Code settings)
+- [x] 4.3 Remove beads plugin skills — verified no beads plugins installed under `.claude/plugins/` or `~/.claude/plugins/`
   **Dependencies**: 4.2
 
-- [ ] 4.4 Update `skills/install.sh` — no beads-specific sync logic found (no changes needed)
+- [x] 4.4 Update `skills/install.sh` — no beads-specific sync logic existed; replaced obsolete `skills/openspec-beads-worktree/install.sh` with a deprecation notice pointing at the coordinator bridge helpers
   **Dependencies**: 4.3
 
-- [ ] 4.5 Update documentation — **deferred to post-merge** (remove beads refs from docs/, memory files)
+- [x] 4.5 Update documentation — converted remaining `bd` references in `skills/openspec-beads-worktree/{CONTRIBUTING,SKILL,openspec-example/EXAMPLE}.md` to coordinator bridge-helper equivalents; cleared dead beads chain in `.githooks/post-merge`
   **Dependencies**: 4.2
+
+## Phase 5: Client Ergonomics — HTTP Bridge Helpers
+
+- [x] 5.1 Extend `skills/coordination-bridge/scripts/coordination_bridge.py` with `try_issue_*` helpers for all 9 endpoints (create, list, show, update, close, comment, ready, blocked, search), add `CAN_ISSUES` capability flag and probe
+  **Spec scenarios**: Issue Bridge Helpers (all)
+  **Dependencies**: 2.3
+
+- [x] 5.2 Tests for `try_issue_*` helpers — capability skip, payload shape, GET-with-query-param (blocked), batch vs single close, unauthorized-as-skipped, optional-field omission
+  **Spec scenarios**: Issue Bridge Helpers (all)
+  **Dependencies**: 5.1
+
+- [x] 5.3 Update `openspec-beads-worktree` skill docs with a "Transport Options" section mapping MCP tool names to bridge helpers
+  **Dependencies**: 5.1

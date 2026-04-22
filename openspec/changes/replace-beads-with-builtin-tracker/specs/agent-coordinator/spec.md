@@ -146,6 +146,46 @@ The system SHALL map user-friendly status names to work_queue statuses:
 WHEN an agent calls `issue_list(status="open")`
 THEN the query filters for `status IN ('pending', 'claimed')` in work_queue
 
+### Requirement: Issue Bridge Helpers
+
+The coordinator HTTP bridge (`skills/coordination-bridge/scripts/coordination_bridge.py`) SHALL expose a uniform set of helper functions — one per issue HTTP endpoint — so non-MCP callers (orchestrator scripts, CI jobs, shell pipelines wrapping `python3`) can invoke issue operations with the same normalized `{status, operation, response, ...}` envelope used by the existing `try_lock`, `try_handoff_write`, and other bridge helpers.
+
+The bridge SHALL define a new capability flag `CAN_ISSUES` and register a probe at `POST /issues/list` with an empty body so `detect_coordination` can advertise issue availability alongside other capabilities.
+
+The bridge SHALL provide the following helpers, each accepting keyword-only arguments matching the corresponding HTTP endpoint's request model and delegating to `_execute_single_endpoint_operation`:
+
+- `try_issue_create` → `POST /issues/create`
+- `try_issue_list` → `POST /issues/list`
+- `try_issue_show` → `GET /issues/{issue_id}`
+- `try_issue_update` → `POST /issues/update`
+- `try_issue_close` → `POST /issues/close`
+- `try_issue_comment` → `POST /issues/comment`
+- `try_issue_ready` → `POST /issues/ready`
+- `try_issue_blocked` → `GET /issues/blocked` (with `limit` as query parameter)
+- `try_issue_search` → `POST /issues/search`
+
+Optional helper arguments that receive `None` SHALL be omitted from the outgoing payload so server-side defaults apply cleanly.
+
+#### Scenario: Capability probe advertises CAN_ISSUES
+WHEN `detect_coordination()` is called against a coordinator where `POST /issues/list` returns `200` with `{"success": true, "issues": [], "count": 0}`
+THEN the returned state dict contains `CAN_ISSUES: true`
+
+#### Scenario: Helper skips when capability is unavailable
+WHEN `try_issue_create(title="x")` is called and `detect_coordination()` reports `CAN_ISSUES: false`
+THEN the helper returns `{"status": "skipped", "reason": "capability_unavailable", ...}` without issuing an HTTP request
+
+#### Scenario: Helper degrades on unreachable coordinator
+WHEN `try_issue_create(title="x")` is called, `CAN_ISSUES` is `true`, but the HTTP request times out (status_code is `None`)
+THEN the helper returns `{"status": "skipped", "reason": "coordinator_unreachable", ...}`
+
+#### Scenario: Batch close uses issue_ids field
+WHEN `try_issue_close(issue_ids=["a", "b"])` is called
+THEN the outgoing payload equals `{"issue_ids": ["a", "b"]}` — no stray `"issue_id": null` key
+
+#### Scenario: Blocked helper encodes limit as query parameter
+WHEN `try_issue_blocked(limit=7)` is called
+THEN the HTTP request uses method `GET` and path `/issues/blocked?limit=7` with no request body
+
 ## MODIFIED Requirements
 
 ### Requirement: Work Queue Backward Compatibility

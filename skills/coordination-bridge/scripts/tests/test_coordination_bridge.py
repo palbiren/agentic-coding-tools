@@ -24,6 +24,7 @@ def _state(**overrides: Any) -> dict[str, Any]:
         "CAN_GUARDRAILS": False,
         "CAN_FEATURE_REGISTRY": False,
         "CAN_MERGE_QUEUE": False,
+        "CAN_ISSUES": False,
     }
     base.update(overrides)
     return base
@@ -104,6 +105,7 @@ def test_detect_coordination_partial_capabilities(monkeypatch) -> None:
             "/handoffs/write": {"status_code": 404, "data": {}, "error": "not found"},
             "/features/active": {"status_code": 404, "data": {}, "error": "not found"},
             "/merge-queue": {"status_code": 404, "data": {}, "error": "not found"},
+            "/issues/list": {"status_code": 200, "data": {"success": True, "issues": [], "count": 0}, "error": None},
         }
         return responses[path]
 
@@ -121,6 +123,7 @@ def test_detect_coordination_partial_capabilities(monkeypatch) -> None:
     assert result["CAN_GUARDRAILS"] is False
     assert result["CAN_FEATURE_REGISTRY"] is False
     assert result["CAN_MERGE_QUEUE"] is False
+    assert result["CAN_ISSUES"] is True
 
 
 def test_try_lock_skips_when_capability_missing(monkeypatch) -> None:
@@ -277,3 +280,297 @@ def test_try_recall_skips_when_coordinator_unavailable(monkeypatch) -> None:
 
     assert result["status"] == "skipped"
     assert result["reason"] == "coordinator_unavailable"
+
+
+# --------------------------------------------------------------------------- #
+# try_issue_* helpers
+# --------------------------------------------------------------------------- #
+
+
+def test_can_issues_is_in_capability_flags() -> None:
+    assert "CAN_ISSUES" in coordination_bridge._CAPABILITY_FLAGS
+    assert "CAN_ISSUES" in coordination_bridge._CAPABILITY_PROBES
+
+
+def test_try_issue_create_skips_when_capability_missing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=False)
+    )
+
+    result = coordination_bridge.try_issue_create(title="Fix CORS")
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "capability_unavailable"
+
+
+def test_try_issue_create_passes_payload(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {
+            "status_code": 200,
+            "data": {"success": True, "issue": {"id": "i-1"}},
+            "error": None,
+        }
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    result = coordination_bridge.try_issue_create(
+        title="Fix CORS",
+        description="Add CORS middleware",
+        issue_type="bug",
+        priority=3,
+        labels=["api", "followup"],
+        parent_id="epic-1",
+        depends_on=["a", "b"],
+    )
+
+    assert result["status"] == "ok"
+    assert captured[0]["path"] == "/issues/create"
+    payload = captured[0]["payload"]
+    assert payload["title"] == "Fix CORS"
+    assert payload["issue_type"] == "bug"
+    assert payload["priority"] == 3
+    assert payload["labels"] == ["api", "followup"]
+    assert payload["parent_id"] == "epic-1"
+    assert payload["depends_on"] == ["a", "b"]
+    # Optional fields that weren't passed must NOT appear in the payload:
+    assert "assignee" not in payload
+
+
+def test_try_issue_create_degrades_on_unreachable(monkeypatch) -> None:
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+    monkeypatch.setattr(
+        coordination_bridge,
+        "_http_request",
+        lambda **_: {"status_code": None, "data": None, "error": "timed out"},
+    )
+
+    result = coordination_bridge.try_issue_create(title="Fix CORS")
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "coordinator_unreachable"
+
+
+def test_try_issue_list_omits_none_filters(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {
+            "status_code": 200,
+            "data": {"success": True, "issues": [], "count": 0},
+            "error": None,
+        }
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    result = coordination_bridge.try_issue_list(status="open", limit=20)
+
+    assert result["status"] == "ok"
+    payload = captured[0]["payload"]
+    assert payload == {"status": "open", "limit": 20}
+
+
+def test_try_issue_show_uses_get_with_id_in_path(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {
+            "status_code": 200,
+            "data": {"success": True, "issue": {"id": "i-1"}},
+            "error": None,
+        }
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    result = coordination_bridge.try_issue_show(issue_id="i-1")
+
+    assert result["status"] == "ok"
+    assert captured[0]["method"] == "GET"
+    assert captured[0]["path"] == "/issues/i-1"
+    assert captured[0]["payload"] is None
+
+
+def test_try_issue_update_always_includes_issue_id(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {"status_code": 200, "data": {"success": True}, "error": None}
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_update(issue_id="i-1", status="in_progress")
+
+    payload = captured[0]["payload"]
+    assert payload["issue_id"] == "i-1"
+    assert payload["status"] == "in_progress"
+    assert "labels" not in payload  # omitted because None
+
+
+def test_try_issue_close_single(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {"status_code": 200, "data": {"success": True, "count": 1}, "error": None}
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_close(issue_id="i-1", reason="merged")
+    payload = captured[0]["payload"]
+    assert payload == {"issue_id": "i-1", "reason": "merged"}
+
+
+def test_try_issue_close_batch(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {"status_code": 200, "data": {"success": True, "count": 2}, "error": None}
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_close(issue_ids=["a", "b"])
+    payload = captured[0]["payload"]
+    assert payload == {"issue_ids": ["a", "b"]}
+
+
+def test_try_issue_comment_payload(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {"status_code": 200, "data": {"success": True}, "error": None}
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_comment(issue_id="i-1", body="started")
+    payload = captured[0]["payload"]
+    assert payload == {"issue_id": "i-1", "body": "started"}
+
+
+def test_try_issue_ready_scoped_to_parent(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {
+            "status_code": 200,
+            "data": {"success": True, "issues": [], "count": 0},
+            "error": None,
+        }
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_ready(parent_id="epic-1", limit=5)
+    payload = captured[0]["payload"]
+    assert payload == {"parent_id": "epic-1", "limit": 5}
+
+
+def test_try_issue_blocked_uses_query_param(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {
+            "status_code": 200,
+            "data": {"success": True, "issues": [], "count": 0},
+            "error": None,
+        }
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_blocked(limit=7)
+    assert captured[0]["method"] == "GET"
+    assert captured[0]["path"] == "/issues/blocked?limit=7"
+    assert captured[0]["payload"] is None
+
+
+def test_try_issue_blocked_without_limit(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {
+            "status_code": 200,
+            "data": {"success": True, "issues": [], "count": 0},
+            "error": None,
+        }
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_blocked()
+    assert captured[0]["path"] == "/issues/blocked"
+
+
+def test_try_issue_search_required_query(monkeypatch) -> None:
+    captured: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+
+    def fake_http_request(**kwargs: Any) -> dict[str, Any]:
+        captured.append(kwargs)
+        return {
+            "status_code": 200,
+            "data": {"success": True, "issues": [], "count": 0},
+            "error": None,
+        }
+
+    monkeypatch.setattr(coordination_bridge, "_http_request", fake_http_request)
+
+    coordination_bridge.try_issue_search(query="CORS", limit=10)
+    payload = captured[0]["payload"]
+    assert payload == {"query": "CORS", "limit": 10}
+
+
+def test_try_issue_create_unauthorized_returns_skipped(monkeypatch) -> None:
+    monkeypatch.setattr(
+        coordination_bridge, "detect_coordination", lambda **_: _state(CAN_ISSUES=True)
+    )
+    monkeypatch.setattr(
+        coordination_bridge,
+        "_http_request",
+        lambda **_: {"status_code": 401, "data": {}, "error": "unauthorized"},
+    )
+
+    result = coordination_bridge.try_issue_create(title="x")
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "unauthorized"

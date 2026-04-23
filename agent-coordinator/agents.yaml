@@ -118,8 +118,8 @@ agents:
         quick:
           args: ["exec", "-s", "workspace-write"]
       model_flag: "-m"
-      model: "gpt-5.4"
-      model_fallbacks: ["gpt-5.3-codex", "gpt-5.4-mini"]
+      model: "gpt-5.5"
+      model_fallbacks: ["gpt-5.4", "gpt-5.4-mini"]
 
   codex-remote:
     type: codex

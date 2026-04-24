@@ -5,91 +5,91 @@
 
 ---
 
-## 2026-04-24 — add-decision-index
+## 2026-04-24 — 2026-04-24-add-decision-index
 
 ### Phase: Implementation Iteration 1
 
 **Use bullet position, not tag-order, for `decision_index_in_phase`** — all three review vendors flagged this independently. `#D<n>` must refer to the natural 1-indexed bullet position a reader sees in the session-log, counting both tagged and untagged Decisions. The prior tag-only counter made supersedes refs fail when an untagged bullet preceded the tagged one. Fix is a regex capture group + one-line assignment; zero change to callers that construct TaggedDecision directly (default remains 1).
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D1)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D1)
 
 ---
 
-## 2026-04-24 — add-decision-index
+## 2026-04-24 — 2026-04-24-add-decision-index
 
 ### Phase: Implementation Iteration 2
 
 **Extended `supersedes:` syntax to `<change-id>#<phase-slug>/D<n>` with bare-form backward compat** — round-2 multi-vendor review (codex, HIGH) caught that a bare `#D<n>` ref targeting a change with multiple phases that both carry D<n> would silently mark every matching phase as superseded. The bug was recorded as an open question in the Plan phase but not closed in iteration 1. Extension keys the supersession map by `(change_id, phase_slug, decision_index)` and accepts bare form only when unambiguous; ambiguous bare refs log a warning and skip the link rather than mis-linking.
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D1)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D1)
 
 ---
 
-## 2026-04-24 — add-decision-index
+## 2026-04-24 — 2026-04-24-add-decision-index
 
 ### Phase: Implementation Iteration 1
 
 **Narrow spec rather than broaden impl on the four MEDIUM spec/impl gaps** — review surfaced four SHALL clauses the implementation silently narrowed: the `reverted` status enum value, the `incremental` rewrite semantics, the one-file-per-cap-directory requirement, and the tag-may-appear-anywhere placement rule. In each case the shipped behavior is the intentional simpler design, so the correct fix is to update the spec prose to match reality — not to expand code to cover spec claims that were never designed.
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D4)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D4)
 
 ---
 
-## 2026-04-23 — add-decision-index
+## 2026-04-23 — 2026-04-24-add-decision-index
 
 ### Phase: Implementation
 
 **Permissive regex between capability tag and em-dash** — The design.md extraction regex requires the supersedes span immediately after the architectural span, but real decision bullets may contain additional backtick spans (a second stray `architectural:`, inline code in rationale). Using `.*?` non-greedy between the tag and em-dash handles the "first occurrence wins" rule naturally and without a second pass, at the cost of not catching malformed placements — which is acceptable because malformation means no tag extracted, not miscategorization.
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D2)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D2)
 
 ---
 
-## 2026-04-16 — add-decision-index
+## 2026-04-16 — 2026-04-24-add-decision-index
 
 ### Phase: Plan
 
 **Inline backtick tag `architectural: <capability>` on Decision bullets** — kebab-case identifiers are already allowlisted by `sanitize_session_log.py` and backticks are not scanned; requires zero sanitizer changes.
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D2)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D2)
 
 ---
 
-## 2026-04-16 — add-decision-index
+## 2026-04-16 — 2026-04-24-add-decision-index
 
 ### Phase: Plan
 
 **Per-bullet tag granularity over per-phase tagging** — a single phase commonly contains Decisions affecting multiple capabilities; per-bullet avoids the one-capability-per-phase constraint and the list-of-tags ambiguity.
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D3)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D3)
 
 ---
 
-## 2026-04-16 — add-decision-index
+## 2026-04-16 — 2026-04-24-add-decision-index
 
 ### Phase: Plan
 
 **Split spec deltas across skill-workflow and software-factory-tooling** — tagging schema is a write-side concern belonging to skill-workflow; emission is a cross-change projection belonging to software-factory-tooling; keeping them in separate deltas matches existing ownership.
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D4)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D4)
 
 ---
 
-## 2026-04-16 — add-decision-index
+## 2026-04-16 — 2026-04-24-add-decision-index
 
 ### Phase: Plan
 
 **Explicit supersession via `supersedes: <change-id>#D<n>` syntax** — inferred supersession introduces wrong-but-confident heuristic calls; explicit is verifiable at CI time and auditable by readers.
 
 - Status: `active`
-- Source: [openspec/changes/add-decision-index/session-log.md](/openspec/changes/add-decision-index/session-log.md) (D7)
+- Source: [openspec/changes/archive/2026-04-24-add-decision-index/session-log.md](/openspec/changes/archive/2026-04-24-add-decision-index/session-log.md) (D7)
 
 ---
 
